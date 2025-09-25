@@ -53,25 +53,14 @@ export default function Landing() {
               A powerful, secure fullstack web application for managing AWS Simple Email Service (SES). 
               Send mass emails, track engagement, and analyze your campaigns with ease.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button 
-                size="lg" 
-                onClick={() => window.location.href = '/api/login'}
-                data-testid="button-login"
-                className="text-lg px-8 py-3"
-              >
-                Log In
-              </Button>
-              <Button 
-                size="lg" 
-                variant="outline"
-                onClick={() => window.location.href = '/api/login'}
-                data-testid="button-signup"
-                className="text-lg px-8 py-3"
-              >
-                Sign Up
-              </Button>
-            </div>
+            <Button 
+              size="lg" 
+              onClick={() => window.location.href = '/api/login'}
+              data-testid="button-get-started"
+              className="text-lg px-8 py-3"
+            >
+              Get Started
+            </Button>
           </div>
         </div>
       </div>
@@ -169,25 +158,14 @@ export default function Landing() {
           <p className="text-muted-foreground text-lg mb-8">
             Join thousands of users who trust SES Manager for their email campaigns
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button 
-              size="lg" 
-              onClick={() => window.location.href = '/api/login'}
-              data-testid="button-cta-login"
-              className="text-lg px-8 py-3"
-            >
-              Log In
-            </Button>
-            <Button 
-              size="lg" 
-              variant="outline"
-              onClick={() => window.location.href = '/api/login'}
-              data-testid="button-cta-signup"
-              className="text-lg px-8 py-3"
-            >
-              Sign Up
-            </Button>
-          </div>
+          <Button 
+            size="lg" 
+            onClick={() => window.location.href = '/api/login'}
+            data-testid="button-cta"
+            className="text-lg px-8 py-3"
+          >
+            Start Your Free Trial
+          </Button>
         </div>
       </div>
 
