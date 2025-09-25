@@ -1,8 +1,5 @@
 #!/usr/bin/env node
 
-// Set NODE_TLS_REJECT_UNAUTHORIZED for development SSL issues
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-
 import { db, pool } from '../server/db.js';
 import { users, sessions } from '../shared/schema.js';
 import { storage } from '../server/storage.js';
