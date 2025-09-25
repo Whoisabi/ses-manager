@@ -102,7 +102,10 @@ export default function AuthPage() {
                 </CardHeader>
                 <CardContent>
                   <Form {...loginForm}>
-                    <form onSubmit={loginForm.handleSubmit(onLogin)} className="space-y-4">
+                    <form onSubmit={(e) => {
+                      e.preventDefault();
+                      loginForm.handleSubmit(onLogin)(e);
+                    }} className="space-y-4">
                       <FormField
                         control={loginForm.control}
                         name="email"
@@ -180,7 +183,10 @@ export default function AuthPage() {
                 </CardHeader>
                 <CardContent>
                   <Form {...registerForm}>
-                    <form onSubmit={registerForm.handleSubmit(onRegister)} className="space-y-4">
+                    <form onSubmit={(e) => {
+                      e.preventDefault();
+                      registerForm.handleSubmit(onRegister)(e);
+                    }} className="space-y-4">
                       <div className="grid grid-cols-2 gap-4">
                         <FormField
                           control={registerForm.control}
