@@ -5,6 +5,38 @@ import { Mail, Shield, BarChart3, Users, Zap, CheckCircle } from "lucide-react";
 export default function Landing() {
   return (
     <div className="min-h-screen bg-background text-foreground">
+      {/* Header */}
+      <header className="border-b border-border">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-4">
+            <div className="flex items-center space-x-3">
+              <div className="bg-primary text-primary-foreground w-8 h-8 rounded-lg flex items-center justify-center">
+                <Mail className="w-4 h-4" />
+              </div>
+              <span className="font-semibold text-lg">SES Manager</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <Button 
+                variant="ghost"
+                onClick={() => window.location.href = '/api/login'}
+                data-testid="header-button-login"
+                className="text-sm"
+              >
+                Log In
+              </Button>
+              <Button 
+                size="sm"
+                onClick={() => window.location.href = '/api/login'}
+                data-testid="header-button-signup"
+                className="text-sm"
+              >
+                Sign Up
+              </Button>
+            </div>
+          </div>
+        </div>
+      </header>
+
       {/* Hero Section */}
       <div className="relative overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
