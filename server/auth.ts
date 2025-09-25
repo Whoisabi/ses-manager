@@ -46,9 +46,11 @@ export function setupAuth(app: Express) {
     resave: false,
     saveUninitialized: false,
     store: storage.sessionStore,
+    rolling: true, // Extend session on each request to prevent unexpected logouts
     cookie: {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
+      sameSite: "lax" as const,
       maxAge: 7 * 24 * 60 * 60 * 1000, // 1 week
     },
   };
