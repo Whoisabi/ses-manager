@@ -35,7 +35,7 @@ type InsertUser = z.infer<typeof insertUserSchema>;
 
 export interface IStorage {
   // Session store for authentication
-  sessionStore: session.SessionStore;
+  sessionStore: session.Store;
 
   // User operations
   getUser(id: string): Promise<User | undefined>;
@@ -97,7 +97,7 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
-  sessionStore: session.SessionStore;
+  sessionStore: session.Store;
 
   constructor() {
     // Based on blueprint:javascript_auth_all_persistance - Initialize session store

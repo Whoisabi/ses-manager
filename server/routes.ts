@@ -39,7 +39,6 @@ const validateAwsCredentialsSchema = z.object({
 
 interface AuthenticatedRequest extends Request {
   user?: any;
-  isAuthenticated(): boolean;
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
