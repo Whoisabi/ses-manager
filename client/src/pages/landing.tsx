@@ -1,8 +1,13 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Mail, Shield, BarChart3, Users, Zap, CheckCircle } from "lucide-react";
+import { useLocation } from "wouter";
 
 export default function Landing() {
+  const [, setLocation] = useLocation();
+
+  const goToAuth = () => setLocation('/auth');
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Header */}
@@ -18,7 +23,7 @@ export default function Landing() {
             <div className="flex items-center gap-3">
               <Button 
                 variant="ghost"
-                onClick={() => window.location.href = '/auth'}
+                onClick={goToAuth}
                 data-testid="header-button-login"
                 className="text-sm"
               >
@@ -26,7 +31,7 @@ export default function Landing() {
               </Button>
               <Button 
                 size="sm"
-                onClick={() => window.location.href = '/auth'}
+                onClick={goToAuth}
                 data-testid="header-button-signup"
                 className="text-sm"
               >
@@ -55,7 +60,7 @@ export default function Landing() {
             </p>
             <Button 
               size="lg" 
-              onClick={() => window.location.href = '/auth'}
+              onClick={goToAuth}
               data-testid="button-get-started"
               className="text-lg px-8 py-3"
             >
@@ -160,7 +165,7 @@ export default function Landing() {
           </p>
           <Button 
             size="lg" 
-            onClick={() => window.location.href = '/auth'}
+            onClick={goToAuth}
             data-testid="button-cta"
             className="text-lg px-8 py-3"
           >
