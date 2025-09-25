@@ -102,11 +102,10 @@ export function setupAuth(app: Express) {
         password: await hashPassword(validatedData.password),
       });
 
-      // Remove password from response
-      const { password, ...userWithoutPassword } = user;
-
-      req.login(userWithoutPassword, (err) => {
+      // Log in with full user object, then remove password from response
+      req.login(user, (err) => {
         if (err) return next(err);
+        const { password, ...userWithoutPassword } = user;
         res.status(201).json(userWithoutPassword);
       });
     } catch (error) {
