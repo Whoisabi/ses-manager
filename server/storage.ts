@@ -25,10 +25,8 @@ import {
   type InsertEmailTrackingEvent,
   insertUserSchema,
 } from "@shared/schema";
-import { db, pool } from "./db";
-import { eq, desc, and, sql, count } from "drizzle-orm";
+import { prisma } from "./db";
 import session from "express-session";
-import connectPg from "connect-pg-simple";
 import { z } from "zod";
 
 type InsertUser = z.infer<typeof insertUserSchema>;
@@ -100,282 +98,636 @@ export class DatabaseStorage implements IStorage {
   sessionStore: session.Store;
 
   constructor() {
-    // Based on blueprint:javascript_auth_all_persistance - Initialize session store
-    const PostgresSessionStore = connectPg(session);
-    this.sessionStore = new PostgresSessionStore({ 
-      pool, 
-      createTableIfMissing: false,
-      tableName: "sessions",
-    });
+    // Use default memory store for development
+    this.sessionStore = new session.MemoryStore();
   }
 
   // User operations
   async getUser(id: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.id, id));
-    return user;
+    const user = await prisma.user.findUnique({ where: { id } });
+    if (!user) return undefined;
+    return {
+      id: user.id,
+      email: user.email,
+      password: user.password,
+      firstName: user.first_name,
+      lastName: user.last_name,
+      profileImageUrl: user.profile_image_url,
+      createdAt: user.created_at,
+      updatedAt: user.updated_at,
+    };
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.email, email));
-    return user;
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) return undefined;
+    return {
+      id: user.id,
+      email: user.email,
+      password: user.password,
+      firstName: user.first_name,
+      lastName: user.last_name,
+      profileImageUrl: user.profile_image_url,
+      createdAt: user.created_at,
+      updatedAt: user.updated_at,
+    };
   }
 
   async createUser(userData: InsertUser): Promise<User> {
-    const [user] = await db.insert(users).values(userData).returning();
-    return user;
+    const user = await prisma.user.create({
+      data: {
+        id: userData.id,
+        email: userData.email,
+        password: userData.password,
+        first_name: userData.firstName,
+        last_name: userData.lastName,
+        profile_image_url: userData.profileImageUrl,
+        created_at: userData.createdAt ?? new Date(),
+        updated_at: userData.updatedAt ?? new Date(),
+      },
+    });
+    return {
+      id: user.id,
+      email: user.email,
+      password: user.password,
+      firstName: user.first_name,
+      lastName: user.last_name,
+      profileImageUrl: user.profile_image_url,
+      createdAt: user.created_at,
+      updatedAt: user.updated_at,
+    };
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {
-    const [user] = await db
-      .insert(users)
-      .values(userData)
-      .onConflictDoUpdate({
-        target: users.id,
-        set: {
-          ...userData,
-          updatedAt: new Date(),
-        },
-      })
-      .returning();
-    return user;
+    const user = await prisma.user.upsert({
+      where: { id: userData.id },
+      update: {
+        email: userData.email,
+        password: userData.password,
+        first_name: userData.firstName,
+        last_name: userData.lastName,
+        profile_image_url: userData.profileImageUrl,
+        updated_at: new Date(),
+      },
+      create: {
+        id: userData.id,
+        email: userData.email,
+        password: userData.password,
+        first_name: userData.firstName,
+        last_name: userData.lastName,
+        profile_image_url: userData.profileImageUrl,
+        created_at: userData.createdAt ?? new Date(),
+        updated_at: userData.updatedAt ?? new Date(),
+      },
+    });
+    return {
+      id: user.id,
+      email: user.email,
+      password: user.password,
+      firstName: user.first_name,
+      lastName: user.last_name,
+      profileImageUrl: user.profile_image_url,
+      createdAt: user.created_at,
+      updatedAt: user.updated_at,
+    };
   }
 
   // AWS credentials operations
+
   async getAwsCredentials(userId: string): Promise<AwsCredentials | undefined> {
-    const [credentials] = await db
-      .select()
-      .from(awsCredentials)
-      .where(eq(awsCredentials.userId, userId));
-    return credentials;
+    const creds = await prisma.awsCredential.findUnique({ where: { user_id: userId } });
+    if (!creds) return undefined;
+    return {
+      id: creds.id,
+      userId: creds.user_id,
+      region: creds.region,
+      encryptedAccessKey: creds.encrypted_access_key,
+      encryptedSecretKey: creds.encrypted_secret_key,
+      createdAt: creds.created_at,
+      updatedAt: creds.updated_at,
+    };
   }
 
   async upsertAwsCredentials(credentials: InsertAwsCredentials & { userId: string }): Promise<AwsCredentials> {
-    const [result] = await db
-      .insert(awsCredentials)
-      .values(credentials)
-      .onConflictDoUpdate({
-        target: awsCredentials.userId,
-        set: {
-          ...credentials,
-          updatedAt: new Date(),
-        },
-      })
-      .returning();
-    return result;
+    const creds = await prisma.awsCredential.upsert({
+      where: { user_id: credentials.userId },
+      update: {
+        region: credentials.region,
+        encrypted_access_key: credentials.encryptedAccessKey,
+        encrypted_secret_key: credentials.encryptedSecretKey,
+        updated_at: new Date(),
+      },
+      create: {
+        user_id: credentials.userId,
+        region: credentials.region,
+        encrypted_access_key: credentials.encryptedAccessKey,
+        encrypted_secret_key: credentials.encryptedSecretKey,
+        created_at: new Date(),
+        updated_at: new Date(),
+      },
+    });
+    return {
+      id: creds.id,
+      userId: creds.user_id,
+      region: creds.region,
+      encryptedAccessKey: creds.encrypted_access_key,
+      encryptedSecretKey: creds.encrypted_secret_key,
+      createdAt: creds.created_at,
+      updatedAt: creds.updated_at,
+    };
   }
 
   async deleteAwsCredentials(userId: string): Promise<void> {
-    await db.delete(awsCredentials).where(eq(awsCredentials.userId, userId));
+    await prisma.awsCredential.delete({ where: { user_id: userId } });
   }
 
   // Email template operations
+
   async getEmailTemplates(userId: string): Promise<EmailTemplate[]> {
-    return await db
-      .select()
-      .from(emailTemplates)
-      .where(eq(emailTemplates.userId, userId))
-      .orderBy(desc(emailTemplates.createdAt));
+    const templates = await prisma.emailTemplate.findMany({
+      where: { user_id: userId },
+      orderBy: { created_at: 'desc' },
+    });
+    return templates.map(t => ({
+      id: t.id,
+      userId: t.user_id,
+      name: t.name,
+      subject: t.subject,
+      content: t.content,
+      variables: t.variables,
+      createdAt: t.created_at,
+      updatedAt: t.updated_at,
+    }));
   }
 
   async getEmailTemplate(id: string, userId: string): Promise<EmailTemplate | undefined> {
-    const [template] = await db
-      .select()
-      .from(emailTemplates)
-      .where(and(eq(emailTemplates.id, id), eq(emailTemplates.userId, userId)));
-    return template;
+    const t = await prisma.emailTemplate.findUnique({ where: { id } });
+    if (!t || t.user_id !== userId) return undefined;
+    return {
+      id: t.id,
+      userId: t.user_id,
+      name: t.name,
+      subject: t.subject,
+      content: t.content,
+      variables: t.variables,
+      createdAt: t.created_at,
+      updatedAt: t.updated_at,
+    };
   }
 
   async createEmailTemplate(template: InsertEmailTemplate & { userId: string }): Promise<EmailTemplate> {
-    const [result] = await db.insert(emailTemplates).values(template).returning();
-    return result;
+    const t = await prisma.emailTemplate.create({
+      data: {
+        user_id: template.userId,
+        name: template.name,
+        subject: template.subject,
+        content: template.content,
+        variables: template.variables,
+        created_at: new Date(),
+        updated_at: new Date(),
+      },
+    });
+    return {
+      id: t.id,
+      userId: t.user_id,
+      name: t.name,
+      subject: t.subject,
+      content: t.content,
+      variables: t.variables,
+      createdAt: t.created_at,
+      updatedAt: t.updated_at,
+    };
   }
 
   async updateEmailTemplate(id: string, userId: string, template: Partial<InsertEmailTemplate>): Promise<EmailTemplate> {
-    const [result] = await db
-      .update(emailTemplates)
-      .set({ ...template, updatedAt: new Date() })
-      .where(and(eq(emailTemplates.id, id), eq(emailTemplates.userId, userId)))
-      .returning();
-    return result;
+    const t = await prisma.emailTemplate.update({
+      where: { id },
+      data: {
+        ...template,
+        updated_at: new Date(),
+      },
+    });
+    return {
+      id: t.id,
+      userId: t.user_id,
+      name: t.name,
+      subject: t.subject,
+      content: t.content,
+      variables: t.variables,
+      createdAt: t.created_at,
+      updatedAt: t.updated_at,
+    };
   }
 
   async deleteEmailTemplate(id: string, userId: string): Promise<void> {
-    await db
-      .delete(emailTemplates)
-      .where(and(eq(emailTemplates.id, id), eq(emailTemplates.userId, userId)));
+    await prisma.emailTemplate.delete({ where: { id } });
   }
 
   // Recipient list operations
+
   async getRecipientLists(userId: string): Promise<RecipientList[]> {
-    return await db
-      .select()
-      .from(recipientLists)
-      .where(eq(recipientLists.userId, userId))
-      .orderBy(desc(recipientLists.createdAt));
+    const lists = await prisma.recipientList.findMany({
+      where: { user_id: userId },
+      orderBy: { created_at: 'desc' },
+    });
+    return lists.map(l => ({
+      id: l.id,
+      userId: l.user_id,
+      name: l.name,
+      description: l.description,
+      createdAt: l.created_at,
+      updatedAt: l.updated_at,
+    }));
   }
 
   async getRecipientList(id: string, userId: string): Promise<RecipientList | undefined> {
-    const [list] = await db
-      .select()
-      .from(recipientLists)
-      .where(and(eq(recipientLists.id, id), eq(recipientLists.userId, userId)));
-    return list;
+    const l = await prisma.recipientList.findUnique({ where: { id } });
+    if (!l || l.user_id !== userId) return undefined;
+    return {
+      id: l.id,
+      userId: l.user_id,
+      name: l.name,
+      description: l.description,
+      createdAt: l.created_at,
+      updatedAt: l.updated_at,
+    };
   }
 
   async createRecipientList(list: InsertRecipientList & { userId: string }): Promise<RecipientList> {
-    const [result] = await db.insert(recipientLists).values(list).returning();
-    return result;
+    const l = await prisma.recipientList.create({
+      data: {
+        user_id: list.userId,
+        name: list.name,
+        description: list.description,
+        created_at: new Date(),
+        updated_at: new Date(),
+      },
+    });
+    return {
+      id: l.id,
+      userId: l.user_id,
+      name: l.name,
+      description: l.description,
+      createdAt: l.created_at,
+      updatedAt: l.updated_at,
+    };
   }
 
   async updateRecipientList(id: string, userId: string, list: Partial<InsertRecipientList>): Promise<RecipientList> {
-    const [result] = await db
-      .update(recipientLists)
-      .set({ ...list, updatedAt: new Date() })
-      .where(and(eq(recipientLists.id, id), eq(recipientLists.userId, userId)))
-      .returning();
-    return result;
+    const l = await prisma.recipientList.update({
+      where: { id },
+      data: {
+        ...list,
+        updated_at: new Date(),
+      },
+    });
+    return {
+      id: l.id,
+      userId: l.user_id,
+      name: l.name,
+      description: l.description,
+      createdAt: l.created_at,
+      updatedAt: l.updated_at,
+    };
   }
 
   async deleteRecipientList(id: string, userId: string): Promise<void> {
-    await db
-      .delete(recipientLists)
-      .where(and(eq(recipientLists.id, id), eq(recipientLists.userId, userId)));
+    await prisma.recipientList.delete({ where: { id } });
   }
 
   // Recipient operations
+
   async getRecipients(listId: string, userId: string): Promise<Recipient[]> {
     // Verify the list belongs to the user
     const list = await this.getRecipientList(listId, userId);
     if (!list) {
       throw new Error('Recipient list not found');
     }
-
-    return await db
-      .select()
-      .from(recipients)
-      .where(eq(recipients.listId, listId))
-      .orderBy(desc(recipients.createdAt));
+    const recs = await prisma.recipient.findMany({
+      where: { list_id: listId },
+      orderBy: { created_at: 'desc' },
+    });
+    return recs.map(r => ({
+      id: r.id,
+      listId: r.list_id,
+      email: r.email,
+      firstName: r.first_name,
+      lastName: r.last_name,
+      metadata: r.metadata,
+      isActive: r.is_active,
+      createdAt: r.created_at,
+    }));
   }
 
   async createRecipients(recipientData: InsertRecipient[]): Promise<Recipient[]> {
-    return await db.insert(recipients).values(recipientData).returning();
+    const recs = await prisma.recipient.createMany({ data: recipientData });
+    // Return all recipients for the list (since createMany doesn't return inserted rows)
+    if (recipientData.length > 0) {
+      return this.getRecipients(recipientData[0].listId, "");
+    }
+    return [];
   }
 
   async deleteRecipients(listId: string): Promise<void> {
-    await db.delete(recipients).where(eq(recipients.listId, listId));
+    await prisma.recipient.deleteMany({ where: { list_id: listId } });
   }
 
   // Email campaign operations
+
   async getEmailCampaigns(userId: string): Promise<EmailCampaign[]> {
-    return await db
-      .select()
-      .from(emailCampaigns)
-      .where(eq(emailCampaigns.userId, userId))
-      .orderBy(desc(emailCampaigns.createdAt));
+    const campaigns = await prisma.emailCampaign.findMany({
+      where: { user_id: userId },
+      orderBy: { created_at: 'desc' },
+    });
+    return campaigns.map(c => ({
+      id: c.id,
+      userId: c.user_id,
+      name: c.name,
+      subject: c.subject,
+      content: c.content,
+      templateId: c.template_id,
+      recipientListId: c.recipient_list_id,
+      status: c.status,
+      scheduledAt: c.scheduled_at,
+      sentAt: c.sent_at,
+      createdAt: c.created_at,
+      updatedAt: c.updated_at,
+    }));
   }
 
   async getEmailCampaign(id: string, userId: string): Promise<EmailCampaign | undefined> {
-    const [campaign] = await db
-      .select()
-      .from(emailCampaigns)
-      .where(and(eq(emailCampaigns.id, id), eq(emailCampaigns.userId, userId)));
-    return campaign;
+    const c = await prisma.emailCampaign.findUnique({ where: { id } });
+    if (!c || c.user_id !== userId) return undefined;
+    return {
+      id: c.id,
+      userId: c.user_id,
+      name: c.name,
+      subject: c.subject,
+      content: c.content,
+      templateId: c.template_id,
+      recipientListId: c.recipient_list_id,
+      status: c.status,
+      scheduledAt: c.scheduled_at,
+      sentAt: c.sent_at,
+      createdAt: c.created_at,
+      updatedAt: c.updated_at,
+    };
   }
 
   async createEmailCampaign(campaign: InsertEmailCampaign & { userId: string }): Promise<EmailCampaign> {
-    const [result] = await db.insert(emailCampaigns).values(campaign).returning();
-    return result;
+    const c = await prisma.emailCampaign.create({
+      data: {
+        user_id: campaign.userId,
+        name: campaign.name,
+        subject: campaign.subject,
+        content: campaign.content,
+        template_id: campaign.templateId,
+        recipient_list_id: campaign.recipientListId,
+        status: campaign.status ?? 'draft',
+        scheduled_at: campaign.scheduledAt,
+        sent_at: campaign.sentAt,
+        created_at: new Date(),
+        updated_at: new Date(),
+      },
+    });
+    return {
+      id: c.id,
+      userId: c.user_id,
+      name: c.name,
+      subject: c.subject,
+      content: c.content,
+      templateId: c.template_id,
+      recipientListId: c.recipient_list_id,
+      status: c.status,
+      scheduledAt: c.scheduled_at,
+      sentAt: c.sent_at,
+      createdAt: c.created_at,
+      updatedAt: c.updated_at,
+    };
   }
 
   async updateEmailCampaign(id: string, userId: string, campaign: Partial<InsertEmailCampaign>): Promise<EmailCampaign> {
-    const [result] = await db
-      .update(emailCampaigns)
-      .set({ ...campaign, updatedAt: new Date() })
-      .where(and(eq(emailCampaigns.id, id), eq(emailCampaigns.userId, userId)))
-      .returning();
-    return result;
+    const c = await prisma.emailCampaign.update({
+      where: { id },
+      data: {
+        ...campaign,
+        updated_at: new Date(),
+      },
+    });
+    return {
+      id: c.id,
+      userId: c.user_id,
+      name: c.name,
+      subject: c.subject,
+      content: c.content,
+      templateId: c.template_id,
+      recipientListId: c.recipient_list_id,
+      status: c.status,
+      scheduledAt: c.scheduled_at,
+      sentAt: c.sent_at,
+      createdAt: c.created_at,
+      updatedAt: c.updated_at,
+    };
   }
 
   async deleteEmailCampaign(id: string, userId: string): Promise<void> {
-    await db
-      .delete(emailCampaigns)
-      .where(and(eq(emailCampaigns.id, id), eq(emailCampaigns.userId, userId)));
+    await prisma.emailCampaign.delete({ where: { id } });
   }
 
   // Email send operations
+
   async createEmailSend(emailSend: InsertEmailSend): Promise<EmailSend> {
-    const [result] = await db.insert(emailSends).values(emailSend).returning();
-    return result;
+    const sendData: any = {
+      recipient_email: emailSend.recipientEmail,
+      subject: emailSend.subject,
+      content: emailSend.content,
+      status: emailSend.status ?? 'pending',
+      message_id: emailSend.messageId,
+      sent_at: emailSend.sentAt,
+      delivered_at: emailSend.deliveredAt,
+      opened_at: emailSend.openedAt,
+      clicked_at: emailSend.clickedAt,
+      bounced_at: emailSend.bouncedAt,
+      complained_at: emailSend.complainedAt,
+      bounce_reason: emailSend.bounceReason,
+      complaint_reason: emailSend.complaintReason,
+      tracking_pixel_id: emailSend.trackingPixelId,
+      created_at: new Date(),
+    };
+    if (emailSend.campaignId) sendData.campaign_id = emailSend.campaignId;
+    const e = await prisma.emailSend.create({ data: sendData });
+    return {
+      id: e.id,
+      campaignId: e.campaign_id,
+      recipientEmail: e.recipient_email,
+      subject: e.subject,
+      content: e.content,
+      status: e.status,
+      messageId: e.message_id,
+      sentAt: e.sent_at,
+      deliveredAt: e.delivered_at,
+      openedAt: e.opened_at,
+      clickedAt: e.clicked_at,
+      bouncedAt: e.bounced_at,
+      complainedAt: e.complained_at,
+      bounceReason: e.bounce_reason,
+      complaintReason: e.complaint_reason,
+      trackingPixelId: e.tracking_pixel_id,
+      createdAt: e.created_at,
+    };
   }
 
   async updateEmailSend(id: string, updates: Partial<InsertEmailSend>): Promise<EmailSend> {
-    const [result] = await db
-      .update(emailSends)
-      .set(updates)
-      .where(eq(emailSends.id, id))
-      .returning();
-    return result;
+    const e = await prisma.emailSend.update({
+      where: { id },
+      data: updates,
+    });
+    return {
+      id: e.id,
+      campaignId: e.campaign_id,
+      recipientEmail: e.recipient_email,
+      subject: e.subject,
+      content: e.content,
+      status: e.status,
+      messageId: e.message_id,
+      sentAt: e.sent_at,
+      deliveredAt: e.delivered_at,
+      openedAt: e.opened_at,
+      clickedAt: e.clicked_at,
+      bouncedAt: e.bounced_at,
+      complainedAt: e.complained_at,
+      bounceReason: e.bounce_reason,
+      complaintReason: e.complaint_reason,
+      trackingPixelId: e.tracking_pixel_id,
+      createdAt: e.created_at,
+    };
   }
 
   async getEmailSends(userId: string, limit = 50): Promise<EmailSend[]> {
-    return await db
-      .select({
-        id: emailSends.id,
-        campaignId: emailSends.campaignId,
-        recipientEmail: emailSends.recipientEmail,
-        subject: emailSends.subject,
-        content: emailSends.content,
-        status: emailSends.status,
-        messageId: emailSends.messageId,
-        sentAt: emailSends.sentAt,
-        deliveredAt: emailSends.deliveredAt,
-        openedAt: emailSends.openedAt,
-        clickedAt: emailSends.clickedAt,
-        bouncedAt: emailSends.bouncedAt,
-        complainedAt: emailSends.complainedAt,
-        bounceReason: emailSends.bounceReason,
-        complaintReason: emailSends.complaintReason,
-        trackingPixelId: emailSends.trackingPixelId,
-        createdAt: emailSends.createdAt,
-      })
-      .from(emailSends)
-      .leftJoin(emailCampaigns, eq(emailSends.campaignId, emailCampaigns.id))
-      .where(eq(emailCampaigns.userId, userId))
-      .orderBy(desc(emailSends.createdAt))
-      .limit(limit);
+    const sends = await prisma.emailSend.findMany({
+      where: {
+        campaign: { user_id: userId },
+      },
+      orderBy: { created_at: 'desc' },
+      take: limit,
+    });
+    return sends.map(e => ({
+      id: e.id,
+      campaignId: e.campaign_id,
+      recipientEmail: e.recipient_email,
+      subject: e.subject,
+      content: e.content,
+      status: e.status,
+      messageId: e.message_id,
+      sentAt: e.sent_at,
+      deliveredAt: e.delivered_at,
+      openedAt: e.opened_at,
+      clickedAt: e.clicked_at,
+      bouncedAt: e.bounced_at,
+      complainedAt: e.complained_at,
+      bounceReason: e.bounce_reason,
+      complaintReason: e.complaint_reason,
+      trackingPixelId: e.tracking_pixel_id,
+      createdAt: e.created_at,
+    }));
   }
 
   async getEmailSendsByCampaign(campaignId: string): Promise<EmailSend[]> {
-    return await db
-      .select()
-      .from(emailSends)
-      .where(eq(emailSends.campaignId, campaignId))
-      .orderBy(desc(emailSends.createdAt));
+    const sends = await prisma.emailSend.findMany({
+      where: { campaign_id: campaignId },
+      orderBy: { created_at: 'desc' },
+    });
+    return sends.map(e => ({
+      id: e.id,
+      campaignId: e.campaign_id,
+      recipientEmail: e.recipient_email,
+      subject: e.subject,
+      content: e.content,
+      status: e.status,
+      messageId: e.message_id,
+      sentAt: e.sent_at,
+      deliveredAt: e.delivered_at,
+      openedAt: e.opened_at,
+      clickedAt: e.clicked_at,
+      bouncedAt: e.bounced_at,
+      complainedAt: e.complained_at,
+      bounceReason: e.bounce_reason,
+      complaintReason: e.complaint_reason,
+      trackingPixelId: e.tracking_pixel_id,
+      createdAt: e.created_at,
+    }));
   }
 
   // Email tracking operations
+
   async createTrackingEvent(event: InsertEmailTrackingEvent): Promise<EmailTrackingEvent> {
-    const [result] = await db.insert(emailTrackingEvents).values(event).returning();
-    return result;
+    const t = await prisma.emailTrackingEvent.create({
+      data: {
+        email_send_id: event.emailSendId,
+        event_type: event.eventType,
+  event_data: event.eventData as any,
+        timestamp: event.timestamp ?? new Date(),
+      },
+    });
+    return {
+      id: t.id,
+      emailSendId: t.email_send_id,
+      eventType: t.event_type,
+      eventData: t.event_data,
+      timestamp: t.timestamp,
+    };
   }
 
   async getEmailSendByTrackingPixel(trackingPixelId: string): Promise<EmailSend | undefined> {
-    const [emailSend] = await db
-      .select()
-      .from(emailSends)
-      .where(eq(emailSends.trackingPixelId, trackingPixelId));
-    return emailSend;
+    const e = await prisma.emailSend.findFirst({ where: { tracking_pixel_id: trackingPixelId } });
+    if (!e) return undefined;
+    return {
+      id: e.id,
+      campaignId: e.campaign_id,
+      recipientEmail: e.recipient_email,
+      subject: e.subject,
+      content: e.content,
+      status: e.status,
+      messageId: e.message_id,
+      sentAt: e.sent_at,
+      deliveredAt: e.delivered_at,
+      openedAt: e.opened_at,
+      clickedAt: e.clicked_at,
+      bouncedAt: e.bounced_at,
+      complainedAt: e.complained_at,
+      bounceReason: e.bounce_reason,
+      complaintReason: e.complaint_reason,
+      trackingPixelId: e.tracking_pixel_id,
+      createdAt: e.created_at,
+    };
   }
 
   async getEmailSendByMessageId(messageId: string): Promise<EmailSend | undefined> {
-    const [emailSend] = await db
-      .select()
-      .from(emailSends)
-      .where(eq(emailSends.messageId, messageId));
-    return emailSend;
+    const e = await prisma.emailSend.findFirst({ where: { message_id: messageId } });
+    if (!e) return undefined;
+    return {
+      id: e.id,
+      campaignId: e.campaign_id,
+      recipientEmail: e.recipient_email,
+      subject: e.subject,
+      content: e.content,
+      status: e.status,
+      messageId: e.message_id,
+      sentAt: e.sent_at,
+      deliveredAt: e.delivered_at,
+      openedAt: e.opened_at,
+      clickedAt: e.clicked_at,
+      bouncedAt: e.bounced_at,
+      complainedAt: e.complained_at,
+      bounceReason: e.bounce_reason,
+      complaintReason: e.complaint_reason,
+      trackingPixelId: e.tracking_pixel_id,
+      createdAt: e.created_at,
+    };
   }
 
   // Analytics operations
+
   async getEmailStats(userId: string): Promise<{
     totalSent: number;
     totalDelivered: number;
@@ -384,26 +736,31 @@ export class DatabaseStorage implements IStorage {
     totalBounced: number;
     totalComplained: number;
   }> {
-    const [stats] = await db
-      .select({
-        totalSent: count(),
-        totalDelivered: sql<number>`count(case when ${emailSends.status} = 'delivered' then 1 end)`,
-        totalOpened: sql<number>`count(case when ${emailSends.openedAt} is not null then 1 end)`,
-        totalClicked: sql<number>`count(case when ${emailSends.clickedAt} is not null then 1 end)`,
-        totalBounced: sql<number>`count(case when ${emailSends.status} = 'bounced' then 1 end)`,
-        totalComplained: sql<number>`count(case when ${emailSends.status} = 'complained' then 1 end)`,
-      })
-      .from(emailSends)
-      .leftJoin(emailCampaigns, eq(emailSends.campaignId, emailCampaigns.id))
-      .where(eq(emailCampaigns.userId, userId));
-
+    const totalSent = await prisma.emailSend.count({
+      where: { campaign: { user_id: userId } },
+    });
+    const totalDelivered = await prisma.emailSend.count({
+      where: { campaign: { user_id: userId }, status: 'delivered' },
+    });
+    const totalOpened = await prisma.emailSend.count({
+      where: { campaign: { user_id: userId }, opened_at: { not: null } },
+    });
+    const totalClicked = await prisma.emailSend.count({
+      where: { campaign: { user_id: userId }, clicked_at: { not: null } },
+    });
+    const totalBounced = await prisma.emailSend.count({
+      where: { campaign: { user_id: userId }, status: 'bounced' },
+    });
+    const totalComplained = await prisma.emailSend.count({
+      where: { campaign: { user_id: userId }, status: 'complained' },
+    });
     return {
-      totalSent: stats.totalSent,
-      totalDelivered: stats.totalDelivered,
-      totalOpened: stats.totalOpened,
-      totalClicked: stats.totalClicked,
-      totalBounced: stats.totalBounced,
-      totalComplained: stats.totalComplained,
+      totalSent,
+      totalDelivered,
+      totalOpened,
+      totalClicked,
+      totalBounced,
+      totalComplained,
     };
   }
 }

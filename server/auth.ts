@@ -161,9 +161,12 @@ export function setupAuth(app: Express) {
 
   // Get current user endpoint
   app.get("/api/user", (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     if (!req.isAuthenticated()) return res.sendStatus(401);
     // Remove password from response
     const { password, ...userWithoutPassword } = req.user!;
-    res.json(userWithoutPassword);
+    res.status(200).json(userWithoutPassword);
   });
 }

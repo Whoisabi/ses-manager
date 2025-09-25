@@ -11,13 +11,13 @@ import EmailTrackingTable from "@/components/tracking/email-tracking-table";
 
 export default function Dashboard() {
   const { toast } = useToast();
-  const { isAuthenticated, isLoading } = useAuth();
+  const { user, isLoading, error } = useAuth();
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    if (!isLoading && !user) {
       toast({
         title: "Unauthorized",
-        description: "You are logged out. Logging in again...",
+        description: error ? error.message : "You are logged out. Logging in again...",
         variant: "destructive",
       });
       setTimeout(() => {
@@ -25,7 +25,7 @@ export default function Dashboard() {
       }, 500);
       return;
     }
-  }, [isAuthenticated, isLoading, toast]);
+  }, [user, isLoading, error, toast]);
 
   if (isLoading) {
     return (
@@ -35,7 +35,15 @@ export default function Dashboard() {
     );
   }
 
-  if (!isAuthenticated) {
+  if (error && !user) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-lg text-red-500">{error.message}</div>
+      </div>
+    );
+  }
+
+  if (!user) {
     return null;
   }
 

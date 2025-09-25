@@ -1,4 +1,6 @@
 import express, { type Request, Response, NextFunction } from "express";
+import dotenv from "dotenv";
+dotenv.config();
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
@@ -63,8 +65,7 @@ app.use((req, res, next) => {
   const port = parseInt(process.env.PORT || '5000', 10);
   server.listen({
     port,
-    host: "0.0.0.0",
-    reusePort: true,
+  host: process.env.NODE_ENV === "development" ? "127.0.0.1" : "0.0.0.0",
   }, () => {
     log(`serving on port ${port}`);
   });
