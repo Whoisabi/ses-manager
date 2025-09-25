@@ -21,14 +21,25 @@ export default function Landing() {
               A powerful, secure fullstack web application for managing AWS Simple Email Service (SES). 
               Send mass emails, track engagement, and analyze your campaigns with ease.
             </p>
-            <Button 
-              size="lg" 
-              onClick={() => window.location.href = '/api/login'}
-              data-testid="button-login"
-              className="text-lg px-8 py-3"
-            >
-              Get Started
-            </Button>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Button 
+                size="lg" 
+                onClick={() => window.location.href = '/api/login'}
+                data-testid="button-login"
+                className="text-lg px-8 py-3"
+              >
+                Log In
+              </Button>
+              <Button 
+                size="lg" 
+                variant="outline"
+                onClick={() => window.location.href = '/api/login'}
+                data-testid="button-signup"
+                className="text-lg px-8 py-3"
+              >
+                Sign Up
+              </Button>
+            </div>
           </div>
         </div>
       </div>
