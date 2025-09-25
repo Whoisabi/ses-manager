@@ -1,0 +1,141 @@
+Project Prompt: AWS SES Fullstack Web Application
+Objective
+
+Build a secure fullstack web application that provides a GUI for interacting with AWS Simple Email Service (SES).
+The application should allow users to log in, enter their AWS credentials (Access Key & Secret Key), and use the full capabilities of AWS SES, including mass mailing, tracking bounces, complaints, deliveries, and opens.
+
+Core Features
+1. User Authentication
+
+Secure login and signup system (JWT/OAuth/local auth).
+
+Store user accounts, but not AWS keys permanently (unless encrypted & user consents).
+
+Option for session-based storage of AWS keys (scoped per user session).
+
+2. AWS Credential Management
+
+GUI input for AWS Access Key & Secret Key.
+
+Validate credentials by connecting to SES.
+
+Allow region selection.
+
+Encrypt and store keys if user chooses "Save Credentials".
+
+3. Email Sending (Mass Mailing)
+
+Upload CSV of recipients (email + optional metadata).
+
+Compose email in rich-text editor (WYSIWYG).
+
+Support templates with variables ({{name}}, {{company}}).
+
+Send emails via AWS SES (single, bulk, and templated).
+
+Track send status per recipient.
+
+4. Bounce, Complaint & Delivery Tracking
+
+Set up SNS integration for SES notifications.
+
+Store bounce/complaint/delivery events in the database.
+
+Display them in the dashboard (with filters/search).
+
+5. Email Open & Click Tracking
+
+Insert tracking pixel into outgoing emails for open tracking.
+
+Generate unique redirect links for click tracking.
+
+Record opens and clicks in the database.
+
+6. Dashboard & Analytics
+
+Graphs for sent, delivered, bounced, opened, clicked.
+
+Filter by date range, campaign, recipient list.
+
+Export analytics (CSV/Excel).
+
+7. Template & Campaign Management
+
+Save and reuse email templates.
+
+Manage recipient lists.
+
+Launch campaigns with scheduling option.
+
+8. Admin Features (Optional)
+
+Role-based access (Admin/User).
+
+Usage monitoring (rate limits, quotas from SES API).
+
+Technical Requirements
+Frontend
+
+Framework: React (Next.js optional).
+
+Styling: TailwindCSS or Material UI.
+
+Components: Login, Dashboard, Email Composer, Analytics, Settings.
+
+Backend
+
+Framework: Node.js (Express/NestJS) or Python (FastAPI).
+
+SES Integration: AWS SDK for SES.
+
+Bounce/Complaint handling via SNS webhook endpoint.
+
+Database ORM: Prisma / Sequelize / SQLAlchemy.
+
+Database
+
+PostgreSQL/MySQL for structured data.
+
+Tables: users, aws_credentials, emails_sent, bounces, complaints, opens, clicks, templates, campaigns.
+
+Security
+
+Do not expose AWS keys in frontend.
+
+Encrypt keys before storage.
+
+Follow AWS SES sending limits & throttling.
+
+Use HTTPS and secure cookies.
+
+API Endpoints (Sample)
+
+POST /auth/login – User authentication.
+
+POST /aws/connect – Validate & store AWS credentials.
+
+POST /email/send – Send single/bulk email.
+
+POST /email/template – Create/save template.
+
+POST /sns/notifications – Receive SNS events (bounce, complaint, delivery).
+
+GET /analytics – Fetch stats for dashboard.
+
+Bonus (Nice-to-Have)
+
+Multi-user multi-tenant support.
+
+Integrate AWS S3 for attachments.
+
+Role-based API limits.
+
+Campaign scheduling with queue (BullMQ/RabbitMQ).
+
+Deliverables
+
+Fullstack web app (frontend + backend + database).
+
+Documentation (README, API docs, setup guide).
+
+Docker setup for local development.
