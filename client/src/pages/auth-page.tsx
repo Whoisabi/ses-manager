@@ -60,12 +60,22 @@ export default function AuthPage() {
   }
 
   const onLogin = (data: LoginData) => {
-    loginMutation.mutate(data);
+    try {
+      console.log('Submitting login:', { email: data.email, hasPassword: !!data.password });
+      loginMutation.mutate(data);
+    } catch (error) {
+      console.error('Login submission error:', error);
+    }
   };
 
   const onRegister = (data: RegisterData) => {
-    const { confirmPassword, ...registerData } = data;
-    registerMutation.mutate(registerData);
+    try {
+      const { confirmPassword, ...registerData } = data;
+      console.log('Submitting registration:', { email: registerData.email, hasPassword: !!registerData.password });
+      registerMutation.mutate(registerData);
+    } catch (error) {
+      console.error('Registration submission error:', error);
+    }
   };
 
   return (
@@ -102,10 +112,7 @@ export default function AuthPage() {
                 </CardHeader>
                 <CardContent>
                   <Form {...loginForm}>
-                    <form onSubmit={(e) => {
-                      e.preventDefault();
-                      loginForm.handleSubmit(onLogin)(e);
-                    }} className="space-y-4">
+                    <form onSubmit={loginForm.handleSubmit(onLogin)} className="space-y-4">
                       <FormField
                         control={loginForm.control}
                         name="email"
@@ -183,10 +190,7 @@ export default function AuthPage() {
                 </CardHeader>
                 <CardContent>
                   <Form {...registerForm}>
-                    <form onSubmit={(e) => {
-                      e.preventDefault();
-                      registerForm.handleSubmit(onRegister)(e);
-                    }} className="space-y-4">
+                    <form onSubmit={registerForm.handleSubmit(onRegister)} className="space-y-4">
                       <div className="grid grid-cols-2 gap-4">
                         <FormField
                           control={registerForm.control}
