@@ -49,14 +49,14 @@ export default function AuthPage() {
       email: "",
       password: "",
       confirmPassword: "",
-      firstName: "",
-      lastName: "",
+      firstName: "" as string,
+      lastName: "" as string,
     },
   });
 
   // Redirect if already logged in (after all hooks)
   if (user) {
-    return <Redirect to="/" />;
+    return <Redirect to="/dashboard" />;
   }
 
   const onLogin = (data: LoginData) => {
