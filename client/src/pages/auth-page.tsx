@@ -49,8 +49,8 @@ export default function AuthPage() {
       email: "",
       password: "",
       confirmPassword: "",
-      firstName: "" as string,
-      lastName: "" as string,
+      firstName: "",
+      lastName: "",
     },
   });
 
@@ -193,6 +193,7 @@ export default function AuthPage() {
                                   placeholder="John"
                                   data-testid="input-register-firstname"
                                   {...field}
+                                  value={field.value || ""}
                                 />
                               </FormControl>
                               <FormMessage />
@@ -210,6 +211,7 @@ export default function AuthPage() {
                                   placeholder="Doe"
                                   data-testid="input-register-lastname"
                                   {...field}
+                                  value={field.value || ""}
                                 />
                               </FormControl>
                               <FormMessage />
