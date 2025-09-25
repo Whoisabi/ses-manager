@@ -18,7 +18,7 @@ export default function Landing() {
             <div className="flex items-center gap-3">
               <Button 
                 variant="ghost"
-                onClick={() => window.location.href = '/api/login'}
+                onClick={() => window.location.href = '/auth'}
                 data-testid="header-button-login"
                 className="text-sm"
               >
@@ -26,7 +26,7 @@ export default function Landing() {
               </Button>
               <Button 
                 size="sm"
-                onClick={() => window.location.href = '/api/login'}
+                onClick={() => window.location.href = '/auth'}
                 data-testid="header-button-signup"
                 className="text-sm"
               >
@@ -55,7 +55,7 @@ export default function Landing() {
             </p>
             <Button 
               size="lg" 
-              onClick={() => window.location.href = '/api/login'}
+              onClick={() => window.location.href = '/auth'}
               data-testid="button-get-started"
               className="text-lg px-8 py-3"
             >
@@ -160,7 +160,7 @@ export default function Landing() {
           </p>
           <Button 
             size="lg" 
-            onClick={() => window.location.href = '/api/login'}
+            onClick={() => window.location.href = '/auth'}
             data-testid="button-cta"
             className="text-lg px-8 py-3"
           >

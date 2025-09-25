@@ -1,7 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+import { setupAuth } from "./auth";
 import { awsService } from "./services/awsService";
 import { emailService } from "./services/emailService";
 import { encrypt } from "./services/encryptionService";
@@ -39,28 +39,25 @@ const validateAwsCredentialsSchema = z.object({
 
 interface AuthenticatedRequest extends Request {
   user?: any;
+  isAuthenticated(): boolean;
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Auth middleware
-  await setupAuth(app);
+  // Based on blueprint:javascript_auth_all_persistance - Set up email/password authentication
+  setupAuth(app);
 
-  // Auth routes
-  app.get('/api/auth/user', isAuthenticated, async (req: AuthenticatedRequest, res) => {
-    try {
-      const userId = req.user!.claims.sub;
-      const user = await storage.getUser(userId);
-      res.json(user);
-    } catch (error) {
-      console.error("Error fetching user:", error);
-      res.status(500).json({ message: "Failed to fetch user" });
+  // Middleware to ensure user is authenticated
+  const isAuthenticated = (req: AuthenticatedRequest, res: Response, next: any) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
     }
-  });
+    next();
+  };
 
   // AWS Credentials routes
   app.get('/api/aws/credentials', isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user!.claims.sub;
+      const userId = req.user!.id;
       const credentials = await storage.getAwsCredentials(userId);
       
       if (!credentials) {
@@ -95,7 +92,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/aws/credentials', isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user!.claims.sub;
+      const userId = req.user!.id;
       const data = insertAwsCredentialsSchema.parse(req.body);
       
       // Validate credentials first
@@ -134,7 +131,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete('/api/aws/credentials', isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user!.claims.sub;
+      const userId = req.user!.id;
       await storage.deleteAwsCredentials(userId);
       res.json({ success: true });
     } catch (error) {
@@ -146,7 +143,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Email sending routes
   app.post('/api/email/send', isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user!.claims.sub;
+      const userId = req.user!.id;
       const data = sendEmailSchema.parse(req.body);
       
       const messageId = await emailService.sendSingleEmail(userId, data);
@@ -167,7 +164,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/email/send-bulk', isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user!.claims.sub;
+      const userId = req.user!.id;
       const data = sendBulkEmailSchema.parse(req.body);
       
       await emailService.sendBulkEmail(userId, data);
@@ -188,7 +185,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Email templates routes
   app.get('/api/templates', isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user!.claims.sub;
+      const userId = req.user!.id;
       const templates = await storage.getEmailTemplates(userId);
       res.json(templates);
     } catch (error) {
@@ -199,7 +196,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/templates', isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user!.claims.sub;
+      const userId = req.user!.id;
       const data = insertEmailTemplateSchema.parse(req.body);
       
       const template = await storage.createEmailTemplate({ ...data, userId });
@@ -215,7 +212,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put('/api/templates/:id', isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user!.claims.sub;
+      const userId = req.user!.id;
       const templateId = req.params.id;
       const data = insertEmailTemplateSchema.partial().parse(req.body);
       
@@ -232,7 +229,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete('/api/templates/:id', isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user!.claims.sub;
+      const userId = req.user!.id;
       const templateId = req.params.id;
       
       await storage.deleteEmailTemplate(templateId, userId);
@@ -246,7 +243,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Recipient lists routes
   app.get('/api/recipient-lists', isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user!.claims.sub;
+      const userId = req.user!.id;
       const lists = await storage.getRecipientLists(userId);
       res.json(lists);
     } catch (error) {
@@ -257,7 +254,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/recipient-lists', isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user!.claims.sub;
+      const userId = req.user!.id;
       const data = insertRecipientListSchema.parse(req.body);
       
       const list = await storage.createRecipientList({ ...data, userId });
@@ -273,7 +270,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/recipient-lists/:id/recipients', isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user!.claims.sub;
+      const userId = req.user!.id;
       const listId = req.params.id;
       
       const recipients = await storage.getRecipients(listId, userId);
@@ -286,7 +283,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/recipient-lists/:id/upload', isAuthenticated, upload.single('csv'), async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user!.claims.sub;
+      const userId = req.user!.id;
       const listId = req.params.id;
       
       if (!req.file) {
@@ -348,7 +345,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Email campaigns routes
   app.get('/api/campaigns', isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user!.claims.sub;
+      const userId = req.user!.id;
       const campaigns = await storage.getEmailCampaigns(userId);
       res.json(campaigns);
     } catch (error) {
@@ -359,7 +356,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/campaigns', isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user!.claims.sub;
+      const userId = req.user!.id;
       const data = insertEmailCampaignSchema.parse(req.body);
       
       const campaign = await storage.createEmailCampaign({ ...data, userId });
@@ -376,7 +373,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Email tracking routes
   app.get('/api/email-sends', isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user!.claims.sub;
+      const userId = req.user!.id;
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
       
       const emailSends = await storage.getEmailSends(userId, limit);
@@ -389,7 +386,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/analytics/stats', isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user!.claims.sub;
+      const userId = req.user!.id;
       const stats = await storage.getEmailStats(userId);
       res.json(stats);
     } catch (error) {
