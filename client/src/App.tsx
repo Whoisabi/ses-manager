@@ -6,7 +6,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/lib/protected-route";
 import Landing from "@/pages/landing";
-import AuthPage from "@/pages/auth-page";
+import LoginPage from "@/pages/login-page";
+import SignupPage from "@/pages/signup-page";
 import Dashboard from "@/pages/dashboard";
 import SendEmail from "@/pages/send-email";
 import Templates from "@/pages/templates";
@@ -18,7 +19,8 @@ import NotFound from "@/pages/not-found";
 function Router() {
   return (
     <Switch>
-      <Route path="/auth" component={AuthPage} />
+      <Route path="/login" component={LoginPage} />
+      <Route path="/signup" component={SignupPage} />
       <Route path="/" component={Landing} />
       <ProtectedRoute path="/dashboard" component={Dashboard} />
       <ProtectedRoute path="/send-email" component={SendEmail} />

@@ -57,7 +57,7 @@ export default function EmailComposer({ showHeader = true }: EmailComposerProps)
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/auth";
+          window.location.href = "/login";
         }, 500);
         return;
       }
