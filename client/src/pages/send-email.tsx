@@ -24,6 +24,7 @@ const bulkSendSchema = z.object({
   subject: z.string().min(1, "Subject is required"),
   content: z.string().min(1, "Content is required"),
   recipientListId: z.string().min(1, "Please select a recipient list"),
+  from: z.string().email("Sender email is required and must be valid"),
 });
 
 export default function SendEmail() {
@@ -36,6 +37,7 @@ export default function SendEmail() {
       subject: "",
       content: "",
       recipientListId: "",
+      from: "",
     },
   });
 
@@ -106,7 +108,7 @@ export default function SendEmail() {
 
   const handleBulkSend = (data: BulkSendForm) => {
     bulkSendMutation.mutate(data);
-  };
+  }
 
   if (isLoading) {
     return (
@@ -202,6 +204,23 @@ export default function SendEmail() {
                   <CardContent>
                     <Form {...form}>
                       <form onSubmit={form.handleSubmit(handleBulkSend)} className="space-y-6">
+                        <FormField
+                          control={form.control}
+                          name="from"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Sender Email</FormLabel>
+                              <FormControl>
+                                <Input 
+                                  placeholder="Enter sender email (must be verified in AWS SES)"
+                                  data-testid="input-bulk-from"
+                                  {...field}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
                         <FormField
                           control={form.control}
                           name="recipientListId"

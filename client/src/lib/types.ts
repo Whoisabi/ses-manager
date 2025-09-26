@@ -34,6 +34,7 @@ export interface BulkSendForm {
   subject: string;
   content: string;
   recipientListId: string;
+  from: string;
 }
 
 export interface AwsCredentialsForm {

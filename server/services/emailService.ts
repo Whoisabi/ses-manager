@@ -8,6 +8,7 @@ export interface SendSingleEmailRequest {
   subject: string;
   content: string;
   campaignId?: string;
+  from?: string;
 }
 
 export interface SendBulkEmailRequest {
@@ -15,6 +16,7 @@ export interface SendBulkEmailRequest {
   content: string;
   recipientListId: string;
   campaignId?: string;
+  from?: string;
 }
 
 export class EmailService {
@@ -31,6 +33,7 @@ export class EmailService {
         to: [request.to],
         subject: request.subject,
         htmlBody: contentWithTracking,
+        from: request.from,
       });
 
       // Record the email send

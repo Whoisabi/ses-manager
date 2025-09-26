@@ -438,14 +438,23 @@ export class DatabaseStorage implements IStorage {
       list_id: r.listId,
       first_name: r.firstName,
       last_name: r.lastName,
-      metadata: r.metadata ?? {},
+      metadata: r.metadata ?? null,
       is_active: r.isActive,
       created_at: r.createdAt ?? new Date(),
     }));
     await prisma.recipient.createMany({ data: mappedData as any });
     // Return all recipients for the list (since createMany doesn't return inserted rows)
     if (recipientData.length > 0) {
-      return this.getRecipients(recipientData[0].listId, "");
+      // Find the userId from the first recipient's listId
+      const listId = recipientData[0].listId;
+      const list = await prisma.recipientList.findUnique({ where: { id: listId } });
+      if (!list) {
+        console.error(`[createRecipients] Recipient list not found for listId: ${listId}`);
+      } else {
+        console.log(`[createRecipients] Found recipient list: ${listId}, userId: ${list.user_id}`);
+      }
+      const userId = list ? list.user_id : "";
+      return this.getRecipients(listId, userId);
     }
     return [];
   }

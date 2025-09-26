@@ -29,6 +29,7 @@ const sendBulkEmailSchema = z.object({
   subject: z.string().min(1),
   content: z.string().min(1),
   recipientListId: z.string(),
+  from: z.string().email(),
 });
 
 const validateAwsCredentialsSchema = z.object({
@@ -56,8 +57,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // AWS Credentials routes
   app.get('/api/aws/credentials', isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user!.id;
-      const credentials = await storage.getAwsCredentials(userId);
+  const userId = req.user!.id;
+  const credentials = await storage.getAwsCredentials(userId);
       
       if (!credentials) {
         return res.json({ connected: false });
@@ -93,7 +94,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user!.id;
       const data = insertAwsCredentialsSchema.parse(req.body);
-      
+
       // Validate credentials first
       const isValid = await awsService.validateCredentials({
         region: data.region,
@@ -114,7 +115,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       const credentials = await storage.upsertAwsCredentials(encryptedCredentials);
-      
+
       res.json({
         connected: true,
         region: credentials.region,
@@ -123,8 +124,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid request data", errors: error.errors });
       }
-      console.error("Error saving AWS credentials:", error);
-      res.status(500).json({ message: "Failed to save AWS credentials" });
+      console.error("Failed to save AWS credentials:", error);
+  res.status(500).json({ message: "Failed to save AWS credentials", error: typeof error === 'object' && error !== null && 'message' in error ? (error as any).message : String(error) });
     }
   });
 
@@ -144,43 +145,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user!.id;
       const data = sendEmailSchema.parse(req.body);
-      
       const messageId = await emailService.sendSingleEmail(userId, data);
-      
-      res.json({ 
-        success: true, 
-        messageId,
-        message: "Email sent successfully" 
-      });
+      res.json({ success: true, messageId });
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Invalid request data", errors: error.errors });
-      }
       console.error("Error sending email:", error);
-      res.status(500).json({ message: error instanceof Error ? error.message : "Failed to send email" });
+      res.status(500).json({ message: "Failed to send email" });
     }
   });
 
+  // Bulk email sending route with error aggregation
   app.post('/api/email/send-bulk', isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user!.id;
       const data = sendBulkEmailSchema.parse(req.body);
-      
-      await emailService.sendBulkEmail(userId, data);
-      
-      res.json({ 
-        success: true,
-        message: "Bulk email campaign started successfully" 
-      });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Invalid request data", errors: error.errors });
+      // campaignId can be passed optionally from frontend
+      const campaignId = req.body.campaignId || null;
+      let failed = 0;
+      let sent = 0;
+      let total = 0;
+      let failedEmails: string[] = [];
+      let sentEmails: string[] = [];
+      const recipients = await storage.getRecipients(data.recipientListId, userId);
+      total = recipients.length;
+      if (total === 0) {
+        return res.status(400).json({ success: false, message: "No recipients found in the selected list" });
       }
+      for (const recipient of recipients) {
+        if (!recipient.isActive) continue;
+        try {
+          await emailService.sendSingleEmail(userId, {
+            to: recipient.email,
+            subject: data.subject,
+            content: data.content,
+            campaignId,
+            from: data.from,
+          });
+          sent++;
+          sentEmails.push(recipient.email);
+        } catch (err) {
+          failed++;
+          failedEmails.push(recipient.email);
+        }
+      }
+      let message = `Sent: ${sent}, Failed: ${failed}, Total: ${total}`;
+      if (sent === 0) {
+        return res.status(500).json({ success: false, message: "All emails failed to send", failedEmails });
+      }
+      if (failed > 0) {
+        return res.status(207).json({ success: false, message, sentEmails, failedEmails });
+      }
+      res.json({ success: true, message });
+    } catch (error) {
       console.error("Error sending bulk email:", error);
-      res.status(500).json({ message: error instanceof Error ? error.message : "Failed to send bulk email" });
+      res.status(500).json({ success: false, message: "Failed to send bulk email", error: typeof error === 'object' && error !== null && 'message' in error ? (error as any).message : String(error) });
     }
   });
-
   // Email templates routes
   app.get('/api/templates', isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
