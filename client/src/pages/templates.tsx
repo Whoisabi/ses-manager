@@ -29,7 +29,7 @@ const templateSchema = z.object({
 
 export default function Templates() {
   const { toast } = useToast();
-  const { isAuthenticated, isLoading } = useAuth();
+  const { user, isLoading } = useAuth();
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
@@ -45,7 +45,7 @@ export default function Templates() {
 
   const { data: templates } = useQuery({
     queryKey: ["/api/templates"],
-    enabled: isAuthenticated,
+    enabled: !!user,
   });
 
   const createTemplateMutation = useMutation({
@@ -147,7 +147,7 @@ export default function Templates() {
   });
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    if (!isLoading && !user) {
       toast({
         title: "Unauthorized",
         description: "You are logged out. Logging in again...",
@@ -158,7 +158,7 @@ export default function Templates() {
       }, 500);
       return;
     }
-  }, [isAuthenticated, isLoading, toast]);
+  }, [user, isLoading, toast]);
 
   const handleCreateTemplate = (data: TemplateForm) => {
     if (selectedTemplate) {
@@ -209,7 +209,7 @@ export default function Templates() {
     );
   }
 
-  if (!isAuthenticated) {
+  if (!user) {
     return null;
   }
 

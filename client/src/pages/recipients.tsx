@@ -28,7 +28,7 @@ const recipientListSchema = z.object({
 
 export default function Recipients() {
   const { toast } = useToast();
-  const { isAuthenticated, isLoading } = useAuth();
+  const { user, isLoading } = useAuth();
   const [selectedList, setSelectedList] = useState<any>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
@@ -43,12 +43,12 @@ export default function Recipients() {
 
   const { data: recipientLists } = useQuery({
     queryKey: ["/api/recipient-lists"],
-    enabled: isAuthenticated,
+    enabled: !!user,
   });
 
   const { data: recipients } = useQuery({
     queryKey: ["/api/recipient-lists", selectedList?.id, "recipients"],
-    enabled: isAuthenticated && !!selectedList?.id,
+    enabled: !!user && !!selectedList?.id,
   });
 
   const createListMutation = useMutation({
@@ -131,7 +131,7 @@ export default function Recipients() {
   });
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    if (!isLoading && !user) {
       toast({
         title: "Unauthorized",
         description: "You are logged out. Logging in again...",
@@ -142,7 +142,7 @@ export default function Recipients() {
       }, 500);
       return;
     }
-  }, [isAuthenticated, isLoading, toast]);
+  }, [user, isLoading, toast]);
 
   const handleCreateList = (data: RecipientListForm) => {
     createListMutation.mutate(data);
@@ -178,7 +178,7 @@ export default function Recipients() {
     );
   }
 
-  if (!isAuthenticated) {
+  if (!user) {
     return null;
   }
 

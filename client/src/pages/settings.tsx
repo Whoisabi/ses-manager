@@ -14,16 +14,16 @@ import { useState } from "react";
 
 export default function Settings() {
   const { toast } = useToast();
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { user, isLoading } = useAuth();
   const [isCredentialsModalOpen, setIsCredentialsModalOpen] = useState(false);
 
   const { data: awsCredentials } = useQuery({
     queryKey: ["/api/aws/credentials"],
-    enabled: isAuthenticated,
+    enabled: !!user,
   });
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    if (!isLoading && !user) {
       toast({
         title: "Unauthorized",
         description: "You are logged out. Logging in again...",
@@ -34,7 +34,7 @@ export default function Settings() {
       }, 500);
       return;
     }
-  }, [isAuthenticated, isLoading, toast]);
+  }, [user, isLoading, toast]);
 
   if (isLoading) {
     return (
@@ -44,7 +44,7 @@ export default function Settings() {
     );
   }
 
-  if (!isAuthenticated) {
+  if (!user) {
     return null;
   }
 

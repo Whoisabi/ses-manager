@@ -28,7 +28,7 @@ const bulkSendSchema = z.object({
 
 export default function SendEmail() {
   const { toast } = useToast();
-  const { isAuthenticated, isLoading } = useAuth();
+  const { user, isLoading } = useAuth();
 
   const form = useForm<BulkSendForm>({
     resolver: zodResolver(bulkSendSchema),
@@ -41,12 +41,12 @@ export default function SendEmail() {
 
   const { data: recipientLists } = useQuery({
     queryKey: ["/api/recipient-lists"],
-    enabled: isAuthenticated,
+    enabled: !!user,
   });
 
   const { data: templates } = useQuery({
     queryKey: ["/api/templates"],
-    enabled: isAuthenticated,
+    enabled: !!user,
   });
 
   const bulkSendMutation = useMutation({
@@ -83,7 +83,7 @@ export default function SendEmail() {
   });
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    if (!isLoading && !user) {
       toast({
         title: "Unauthorized",
         description: "You are logged out. Logging in again...",
@@ -94,7 +94,7 @@ export default function SendEmail() {
       }, 500);
       return;
     }
-  }, [isAuthenticated, isLoading, toast]);
+  }, [user, isLoading, toast]);
 
   const handleTemplateSelect = (templateId: string) => {
     const template = (templates as any[])?.find((t: any) => t.id === templateId);
@@ -116,7 +116,7 @@ export default function SendEmail() {
     );
   }
 
-  if (!isAuthenticated) {
+  if (!user) {
     return null;
   }
 

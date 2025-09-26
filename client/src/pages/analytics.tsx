@@ -13,20 +13,20 @@ import type { EmailStats } from "@/lib/types";
 
 export default function Analytics() {
   const { toast } = useToast();
-  const { isAuthenticated, isLoading } = useAuth();
+  const { user, isLoading } = useAuth();
 
   const { data: stats } = useQuery<EmailStats>({
     queryKey: ["/api/analytics/stats"],
-    enabled: isAuthenticated,
+    enabled: !!user,
   });
 
   const { data: emailSends } = useQuery({
     queryKey: ["/api/email-sends"],
-    enabled: isAuthenticated,
+    enabled: !!user,
   });
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    if (!isLoading && !user) {
       toast({
         title: "Unauthorized",
         description: "You are logged out. Logging in again...",
@@ -37,7 +37,7 @@ export default function Analytics() {
       }, 500);
       return;
     }
-  }, [isAuthenticated, isLoading, toast]);
+  }, [user, isLoading, toast]);
 
   if (isLoading) {
     return (
@@ -47,7 +47,7 @@ export default function Analytics() {
     );
   }
 
-  if (!isAuthenticated) {
+  if (!user) {
     return null;
   }
 
