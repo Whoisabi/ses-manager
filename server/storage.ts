@@ -136,14 +136,12 @@ export class DatabaseStorage implements IStorage {
   async createUser(userData: InsertUser): Promise<User> {
     const user = await prisma.user.create({
       data: {
-        id: userData.id,
         email: userData.email,
         password: userData.password,
         first_name: userData.firstName,
         last_name: userData.lastName,
         profile_image_url: userData.profileImageUrl,
-        created_at: userData.createdAt ?? new Date(),
-        updated_at: userData.updatedAt ?? new Date(),
+        // created_at and updated_at are set by default in schema
       },
     });
     return {
@@ -195,7 +193,7 @@ export class DatabaseStorage implements IStorage {
   // AWS credentials operations
 
   async getAwsCredentials(userId: string): Promise<AwsCredentials | undefined> {
-    const creds = await prisma.awsCredential.findUnique({ where: { user_id: userId } });
+  const creds = await prisma.awsCredential.findFirst({ where: { user_id: userId } });
     if (!creds) return undefined;
     return {
       id: creds.id,
@@ -209,23 +207,31 @@ export class DatabaseStorage implements IStorage {
   }
 
   async upsertAwsCredentials(credentials: InsertAwsCredentials & { userId: string }): Promise<AwsCredentials> {
-    const creds = await prisma.awsCredential.upsert({
-      where: { user_id: credentials.userId },
-      update: {
-        region: credentials.region,
-        encrypted_access_key: credentials.encryptedAccessKey,
-        encrypted_secret_key: credentials.encryptedSecretKey,
-        updated_at: new Date(),
-      },
-      create: {
-        user_id: credentials.userId,
-        region: credentials.region,
-        encrypted_access_key: credentials.encryptedAccessKey,
-        encrypted_secret_key: credentials.encryptedSecretKey,
-        created_at: new Date(),
-        updated_at: new Date(),
-      },
-    });
+    // Upsert by user_id is not supported by Prisma, so find first then update or create
+    const existing = await prisma.awsCredential.findFirst({ where: { user_id: credentials.userId } });
+    let creds;
+    if (existing) {
+      creds = await prisma.awsCredential.update({
+        where: { id: existing.id },
+        data: {
+          region: credentials.region,
+          encrypted_access_key: credentials.encryptedAccessKey,
+          encrypted_secret_key: credentials.encryptedSecretKey,
+          updated_at: new Date(),
+        },
+      });
+    } else {
+      creds = await prisma.awsCredential.create({
+        data: {
+          user_id: credentials.userId,
+          region: credentials.region,
+          encrypted_access_key: credentials.encryptedAccessKey,
+          encrypted_secret_key: credentials.encryptedSecretKey,
+          created_at: new Date(),
+          updated_at: new Date(),
+        },
+      });
+    }
     return {
       id: creds.id,
       userId: creds.user_id,
@@ -238,7 +244,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteAwsCredentials(userId: string): Promise<void> {
-    await prisma.awsCredential.delete({ where: { user_id: userId } });
+    const existing = await prisma.awsCredential.findFirst({ where: { user_id: userId } });
+    if (existing) {
+      await prisma.awsCredential.delete({ where: { id: existing.id } });
+    }
   }
 
   // Email template operations
@@ -282,7 +291,7 @@ export class DatabaseStorage implements IStorage {
         name: template.name,
         subject: template.subject,
         content: template.content,
-        variables: template.variables,
+        variables: template.variables ?? [],
         created_at: new Date(),
         updated_at: new Date(),
       },
@@ -300,12 +309,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateEmailTemplate(id: string, userId: string, template: Partial<InsertEmailTemplate>): Promise<EmailTemplate> {
+    // Ensure variables is never null
+    const updateData = {
+      ...template,
+      variables: template.variables ?? undefined,
+      updated_at: new Date(),
+    };
     const t = await prisma.emailTemplate.update({
       where: { id },
-      data: {
-        ...template,
-        updated_at: new Date(),
-      },
+      data: updateData,
     });
     return {
       id: t.id,
@@ -420,7 +432,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createRecipients(recipientData: InsertRecipient[]): Promise<Recipient[]> {
-    const recs = await prisma.recipient.createMany({ data: recipientData });
+    // Map listId to list_id for Prisma
+    const mappedData = recipientData.map(r => ({
+      email: r.email,
+      list_id: r.listId,
+      first_name: r.firstName,
+      last_name: r.lastName,
+      metadata: r.metadata ?? {},
+      is_active: r.isActive,
+      created_at: r.createdAt ?? new Date(),
+    }));
+    await prisma.recipient.createMany({ data: mappedData as any });
     // Return all recipients for the list (since createMany doesn't return inserted rows)
     if (recipientData.length > 0) {
       return this.getRecipients(recipientData[0].listId, "");

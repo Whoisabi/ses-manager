@@ -11,6 +11,7 @@ import {
   LogOut
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import DOMPurify from 'dompurify';
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: BarChart3 },
@@ -20,6 +21,8 @@ const navigation = [
   { name: "Analytics", href: "/analytics", icon: BarChart3 },
   { name: "Settings", href: "/settings", icon: Settings },
 ];
+
+const sanitize = (str: string) => DOMPurify.sanitize(str);
 
 export default function Sidebar() {
   const [location] = useLocation();
@@ -51,21 +54,21 @@ export default function Sidebar() {
         {navigation.map((item) => {
           const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
           const Icon = item.icon;
-          
+          const safeName = sanitize(item.name);
           return (
-            <Link key={item.name} href={item.href}>
-              <a
-                className={cn(
-                  "flex items-center space-x-3 px-3 py-2 rounded-md transition-colors",
-                  isActive
-                    ? "bg-accent text-accent-foreground"
-                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                )}
-                data-testid={`nav-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
-              >
-                <Icon className="w-5 h-5" />
-                <span className="font-medium">{item.name}</span>
-              </a>
+            <Link
+              key={safeName}
+              href={item.href}
+              className={cn(
+                "flex items-center space-x-3 px-3 py-2 rounded-md transition-colors",
+                isActive
+                  ? "bg-accent text-accent-foreground"
+                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              )}
+              data-testid={`nav-${safeName.toLowerCase().replace(/\s+/g, '-')}`}
+            >
+              <Icon className="w-5 h-5" />
+              <span className="font-medium">{safeName}</span>
             </Link>
           );
         })}
