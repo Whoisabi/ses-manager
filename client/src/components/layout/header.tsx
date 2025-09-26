@@ -1,8 +1,9 @@
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
+import CredentialsModal from "@/components/aws/credentials-modal";
 
 interface HeaderProps {
   title: string;
@@ -11,6 +12,7 @@ interface HeaderProps {
 }
 
 export default function Header({ title, description, action }: HeaderProps) {
+  const [isCredentialsModalOpen, setIsCredentialsModalOpen] = useState(false);
   const { data: awsCredentials } = useQuery({
     queryKey: ["/api/aws/credentials"],
   });
@@ -27,22 +29,32 @@ export default function Header({ title, description, action }: HeaderProps) {
           </p>
         </div>
         <div className="flex items-center space-x-4">
-          {/* AWS Connection Status */}
-          <div className="flex items-center space-x-2 bg-accent px-3 py-2 rounded-md">
+          {/* AWS Connection Status - Clickable */}
+          <button 
+            onClick={() => setIsCredentialsModalOpen(true)}
+            className="flex items-center space-x-2 bg-accent hover:bg-accent/80 px-3 py-2 rounded-md transition-colors cursor-pointer"
+            data-testid="button-aws-connection-status"
+          >
             <div 
               className={`w-2 h-2 rounded-full ${
                 (awsCredentials as any)?.connected ? 'bg-green-500' : 'bg-red-500'
               }`} 
             />
-            <span className="text-sm font-medium" data-testid="text-aws-connection-status">
+            <span className="text-sm font-medium">
               {(awsCredentials as any)?.connected ? 'AWS Connected' : 'AWS Disconnected'}
             </span>
-          </div>
+          </button>
           
           {/* Custom Action */}
           {action}
         </div>
       </div>
+      
+      {/* AWS Credentials Modal */}
+      <CredentialsModal 
+        open={isCredentialsModalOpen} 
+        onOpenChange={setIsCredentialsModalOpen} 
+      />
     </header>
   );
 }

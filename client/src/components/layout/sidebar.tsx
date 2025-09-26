@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import DOMPurify from 'dompurify';
 
 const navigation = [
-  { name: "Dashboard", href: "/", icon: BarChart3 },
+  { name: "Dashboard", href: "/dashboard", icon: BarChart3 },
   { name: "Send Email", href: "/send-email", icon: NotebookPen },
   { name: "Templates", href: "/templates", icon: FileText },
   { name: "Recipients", href: "/recipients", icon: Users },
