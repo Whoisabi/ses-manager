@@ -16,10 +16,17 @@ import { Shield, Loader2 } from "lucide-react";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import type { AwsCredentialsForm } from "@/lib/types";
 
+// Form interface for validation (matches backend validation schema)
+interface CredentialsValidationForm {
+  region: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+}
+
 const credentialsSchema = z.object({
   region: z.string().min(1, "Region is required"),
-  encryptedAccessKey: z.string().min(1, "Access Key ID is required"),
-  encryptedSecretKey: z.string().min(1, "Secret Access Key is required"),
+  accessKeyId: z.string().min(1, "Access Key ID is required"),
+  secretAccessKey: z.string().min(1, "Secret Access Key is required"),
 });
 
 interface CredentialsModalProps {
@@ -40,12 +47,12 @@ export default function CredentialsModal({ open, onOpenChange }: CredentialsModa
   const { toast } = useToast();
   const [saveCredentials, setSaveCredentials] = useState(true);
 
-  const form = useForm<AwsCredentialsForm>({
+  const form = useForm<CredentialsValidationForm>({
     resolver: zodResolver(credentialsSchema),
     defaultValues: {
       region: "",
-      encryptedAccessKey: "",
-      encryptedSecretKey: "",
+      accessKeyId: "",
+      secretAccessKey: "",
     },
   });
 
@@ -55,7 +62,7 @@ export default function CredentialsModal({ open, onOpenChange }: CredentialsModa
   });
 
   const validateMutation = useMutation({
-    mutationFn: async (data: AwsCredentialsForm) => {
+    mutationFn: async (data: CredentialsValidationForm) => {
       const response = await apiRequest("POST", "/api/aws/credentials/validate", data);
       return response.json();
     },
@@ -92,8 +99,14 @@ export default function CredentialsModal({ open, onOpenChange }: CredentialsModa
   });
 
   const saveCredentialsMutation = useMutation({
-    mutationFn: async (data: AwsCredentialsForm) => {
-      await apiRequest("POST", "/api/aws/credentials", data);
+    mutationFn: async (data: CredentialsValidationForm) => {
+      // Convert field names to match backend schema for saving
+      const saveData: AwsCredentialsForm = {
+        region: data.region,
+        encryptedAccessKey: data.accessKeyId,
+        encryptedSecretKey: data.secretAccessKey,
+      };
+      await apiRequest("POST", "/api/aws/credentials", saveData);
     },
     onSuccess: () => {
       toast({
@@ -156,7 +169,7 @@ export default function CredentialsModal({ open, onOpenChange }: CredentialsModa
     },
   });
 
-  const handleSubmit = (data: AwsCredentialsForm) => {
+  const handleSubmit = (data: CredentialsValidationForm) => {
     validateMutation.mutate(data);
   };
 
@@ -217,7 +230,7 @@ export default function CredentialsModal({ open, onOpenChange }: CredentialsModa
 
             <FormField
               control={form.control}
-              name="encryptedAccessKey"
+              name="accessKeyId"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Access Key ID</FormLabel>
@@ -236,7 +249,7 @@ export default function CredentialsModal({ open, onOpenChange }: CredentialsModa
 
             <FormField
               control={form.control}
-              name="encryptedSecretKey"
+              name="secretAccessKey"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Secret Access Key</FormLabel>
