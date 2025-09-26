@@ -23,6 +23,8 @@ model User {
   email_templates  EmailTemplate[]
   recipient_lists  RecipientList[]
   email_campaigns  EmailCampaign[]
+  
+  @@map("users")
 }
 
 model AwsCredential {
@@ -34,6 +36,8 @@ model AwsCredential {
   created_at         DateTime @default(now())
   updated_at         DateTime @updatedAt
   user               User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  
+  @@map("aws_credentials")
 }
 
 model EmailTemplate {
@@ -47,6 +51,8 @@ model EmailTemplate {
   updated_at DateTime @updatedAt
   user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
   campaigns  EmailCampaign[] @relation("TemplateToCampaign")
+  
+  @@map("email_templates")
 }
 
 model RecipientList {
@@ -59,6 +65,8 @@ model RecipientList {
   user        User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
   recipients  Recipient[]
   campaigns   EmailCampaign[] @relation("RecipientListToCampaign")
+  
+  @@map("recipient_lists")
 }
 
 model Recipient {
@@ -71,6 +79,8 @@ model Recipient {
   is_active  Boolean  @default(true)
   created_at DateTime @default(now())
   list       RecipientList @relation(fields: [list_id], references: [id], onDelete: Cascade)
+  
+  @@map("recipients")
 }
 
 model EmailCampaign {
@@ -90,6 +100,8 @@ model EmailCampaign {
   template         EmailTemplate? @relation(fields: [template_id], references: [id], name: "TemplateToCampaign")
   recipient_list   RecipientList? @relation(fields: [recipient_list_id], references: [id], name: "RecipientListToCampaign")
   email_sends      EmailSend[]
+  
+  @@map("email_campaigns")
 }
 
 model EmailSend {
@@ -112,6 +124,8 @@ model EmailSend {
   created_at       DateTime @default(now())
   campaign         EmailCampaign @relation(fields: [campaign_id], references: [id], onDelete: Cascade)
   tracking_events  EmailTrackingEvent[]
+  
+  @@map("email_sends")
 }
 
 model EmailTrackingEvent {
@@ -121,6 +135,8 @@ model EmailTrackingEvent {
   event_data    Json?
   timestamp     DateTime @default(now())
   email_send    EmailSend @relation(fields: [email_send_id], references: [id], onDelete: Cascade)
+  
+  @@map("email_tracking_events")
 }
 
 model Session {
@@ -128,4 +144,6 @@ model Session {
   sess    Json
   expire  DateTime
   @@index([expire], name: "IDX_session_expire")
+  
+  @@map("sessions")
 }
