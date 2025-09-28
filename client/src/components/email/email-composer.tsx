@@ -18,6 +18,7 @@ const quickSendSchema = z.object({
   to: z.string().email("Please enter a valid email address"),
   subject: z.string().min(1, "Subject is required"),
   content: z.string().min(1, "Content is required"),
+  from: z.string().email("Please enter a valid from email address"),
 });
 
 interface EmailComposerProps {
@@ -33,6 +34,7 @@ export default function EmailComposer({ showHeader = true }: EmailComposerProps)
       to: "",
       subject: "",
       content: "",
+      from: "",
     },
   });
 
@@ -76,6 +78,25 @@ export default function EmailComposer({ showHeader = true }: EmailComposerProps)
   const content = (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleQuickSend)} className="space-y-4">
+        <FormField
+          control={form.control}
+          name="from"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>From</FormLabel>
+              <FormControl>
+                <Input 
+                  type="email"
+                  placeholder="your-email@example.com"
+                  data-testid="input-email-from"
+                  {...field}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
         <FormField
           control={form.control}
           name="subject"

@@ -28,6 +28,7 @@ export interface QuickSendForm {
   to: string;
   subject: string;
   content: string;
+  from: string;
 }
 
 export interface BulkSendForm {

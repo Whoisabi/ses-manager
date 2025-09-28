@@ -66,6 +66,10 @@ export class EmailService {
 
       await storage.createEmailSend(emailSend);
       
+      // Preserve the original error message for better user guidance
+      if (error instanceof Error) {
+        throw error;
+      }
       throw new Error('Failed to send email');
     }
   }
@@ -124,6 +128,7 @@ export class EmailService {
           to: [recipient.email],
           subject: personalizedSubject,
           htmlBody: contentWithTracking,
+          from: request.from,
         });
 
         emailSends.push({

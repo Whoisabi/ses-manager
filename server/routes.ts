@@ -23,6 +23,7 @@ const sendEmailSchema = z.object({
   to: z.string().email(),
   subject: z.string().min(1),
   content: z.string().min(1),
+  from: z.string().email(),
 });
 
 const sendBulkEmailSchema = z.object({
@@ -140,6 +141,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get verified sender identities from AWS SES
+  app.get('/api/aws/verified-identities', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.id;
+      await awsService.initialize(userId);
+      const identities = await awsService.getVerifiedIdentities();
+      res.json({ identities });
+    } catch (error) {
+      console.error("Error fetching verified identities:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to fetch verified identities";
+      
+      if (errorMessage.includes('AWS credentials not configured')) {
+        return res.status(400).json({ 
+          message: errorMessage,
+          code: 'MISSING_AWS_CREDENTIALS',
+          identities: []
+        });
+      }
+      
+      res.status(500).json({ 
+        message: errorMessage,
+        identities: []
+      });
+    }
+  });
+
   // Email sending routes
   app.post('/api/email/send', isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
@@ -149,7 +176,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true, messageId });
     } catch (error) {
       console.error("Error sending email:", error);
-      res.status(500).json({ message: "Failed to send email" });
+      
+      // Return more specific error messages to help users
+      const errorMessage = error instanceof Error ? error.message : "Failed to send email";
+      
+      // Determine appropriate HTTP status code based on error type
+      if (errorMessage.includes('AWS credentials not configured')) {
+        return res.status(400).json({ 
+          success: false, 
+          message: errorMessage,
+          code: 'MISSING_AWS_CREDENTIALS' 
+        });
+      }
+      
+      if (errorMessage.includes('From email address is required')) {
+        return res.status(400).json({ 
+          success: false, 
+          message: errorMessage,
+          code: 'MISSING_FROM_EMAIL' 
+        });
+      }
+      
+      if (errorMessage.includes('not verified') || errorMessage.includes('not authorized')) {
+        return res.status(400).json({ 
+          success: false, 
+          message: errorMessage,
+          code: 'SENDER_NOT_VERIFIED' 
+        });
+      }
+      
+      res.status(500).json({ 
+        success: false, 
+        message: errorMessage,
+        code: 'SEND_FAILED'
+      });
     }
   });
 

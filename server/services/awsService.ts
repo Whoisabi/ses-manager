@@ -1,4 +1,4 @@
-import { SESClient, SendEmailCommand, SendBulkTemplatedEmailCommand, CreateTemplateCommand, DeleteTemplateCommand, ListTemplatesCommand } from '@aws-sdk/client-ses';
+import { SESClient, SendEmailCommand, SendBulkTemplatedEmailCommand, CreateTemplateCommand, DeleteTemplateCommand, ListTemplatesCommand, ListIdentitiesCommand, GetIdentityVerificationAttributesCommand } from '@aws-sdk/client-ses';
 import { storage } from '../storage';
 import { decrypt } from './encryptionService';
 
@@ -31,7 +31,7 @@ export class AWSService {
   async initialize(userId: string): Promise<void> {
     const credentials = await storage.getAwsCredentials(userId);
     if (!credentials) {
-      throw new Error('AWS credentials not found. Please configure your AWS credentials first.');
+      throw new Error('AWS credentials not configured. Please go to Settings to add your AWS access keys, secret keys, and region. You also need to verify your sending email address in AWS SES.');
     }
 
     try {
@@ -79,8 +79,17 @@ export class AWSService {
   async sendEmail(options: SendEmailOptions): Promise<string> {
     const sesClient = this.ensureInitialized();
 
+    // Validate that 'from' email is provided
+    const fromEmail = options.from || process.env.AWS_SES_FROM_EMAIL;
+    if (!fromEmail) {
+      throw new Error('From email address is required. Please provide a verified sender email address.');
+    }
+
+    // Validate that the sender email is verified in AWS SES
+    await this.validateSenderIdentity(fromEmail);
+
     const command = new SendEmailCommand({
-      Source: options.from || process.env.AWS_SES_FROM_EMAIL || 'noreply@example.com',
+      Source: fromEmail,
       Destination: {
         ToAddresses: options.to,
       },
@@ -150,6 +159,87 @@ export class AWSService {
     });
 
     await sesClient.send(command);
+  }
+
+  async validateSenderIdentity(email: string): Promise<void> {
+    const sesClient = this.ensureInitialized();
+
+    try {
+      // Extract domain from email for domain-level verification check
+      const domain = email.split('@')[1];
+      const identities = [email];
+      
+      // Also check the domain if it's different from the email
+      if (domain && !identities.includes(domain)) {
+        identities.push(domain);
+      }
+
+      // Get verification attributes for both email and domain
+      const command = new GetIdentityVerificationAttributesCommand({
+        Identities: identities
+      });
+      
+      const response = await sesClient.send(command);
+      
+      if (!response.VerificationAttributes) {
+        throw new Error(`Email address "${email}" is not verified in AWS SES. Please verify your sender email address or domain "${domain}" in the AWS SES console before sending emails.`);
+      }
+      
+      // Check if either the exact email OR the domain is verified
+      const emailVerification = response.VerificationAttributes[email];
+      const domainVerification = response.VerificationAttributes[domain];
+      
+      const isEmailVerified = emailVerification?.VerificationStatus === 'Success';
+      const isDomainVerified = domainVerification?.VerificationStatus === 'Success';
+      
+      if (!isEmailVerified && !isDomainVerified) {
+        throw new Error(`Email address "${email}" and domain "${domain}" are not verified in AWS SES. Please verify either your sender email address or domain in the AWS SES console before sending emails.`);
+      }
+      
+    } catch (error) {
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error(`Unable to verify sender email address "${email}". Please check your AWS SES configuration.`);
+    }
+  }
+
+  async getVerifiedIdentities(): Promise<string[]> {
+    const sesClient = this.ensureInitialized();
+
+    try {
+      // First, list all identities
+      const listCommand = new ListIdentitiesCommand({});
+      const listResponse = await sesClient.send(listCommand);
+      
+      const allIdentities = listResponse.Identities || [];
+      
+      if (allIdentities.length === 0) {
+        return [];
+      }
+
+      // Then, get verification attributes for all identities
+      const verificationCommand = new GetIdentityVerificationAttributesCommand({
+        Identities: allIdentities
+      });
+      
+      const verificationResponse = await sesClient.send(verificationCommand);
+      
+      // Filter to only return verified identities
+      const verifiedIdentities: string[] = [];
+      
+      for (const identity of allIdentities) {
+        const verificationStatus = verificationResponse.VerificationAttributes?.[identity];
+        if (verificationStatus?.VerificationStatus === 'Success') {
+          verifiedIdentities.push(identity);
+        }
+      }
+      
+      return verifiedIdentities;
+    } catch (error) {
+      console.error('Failed to list verified identities:', error);
+      return [];
+    }
   }
 }
 
