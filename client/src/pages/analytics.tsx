@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import Sidebar from "@/components/layout/sidebar";
@@ -8,12 +8,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Download, TrendingUp, TrendingDown, Mail, Eye, MousePointer, AlertTriangle, CheckCircle } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, Legend } from "recharts";
 import type { EmailStats } from "@/lib/types";
 
 export default function Analytics() {
   const { toast } = useToast();
   const { user, isLoading } = useAuth();
+  const [timeRange, setTimeRange] = useState("7");
+  const [selectedCampaign, setSelectedCampaign] = useState<string>("");
 
   const { data: stats } = useQuery<EmailStats>({
     queryKey: ["/api/analytics/stats"],
@@ -22,6 +24,27 @@ export default function Analytics() {
 
   const { data: emailSends } = useQuery({
     queryKey: ["/api/email-sends"],
+    enabled: !!user,
+  });
+
+  const { data: campaigns } = useQuery({
+    queryKey: ["/api/campaigns"],
+    enabled: !!user,
+  });
+
+  const { data: timeseriesData } = useQuery<Array<{
+    date: string;
+    sent: number;
+    delivered: number;
+    opened: number;
+    clicked: number;
+    bounced: number;
+    complained: number;
+  }>>({
+    queryKey: ["/api/analytics/timeseries", { 
+      days: parseInt(timeRange), 
+      ...(selectedCampaign && { campaignId: selectedCampaign })
+    }],
     enabled: !!user,
   });
 
@@ -84,14 +107,25 @@ export default function Analytics() {
           description="Monitor your email campaign performance and engagement metrics"
           action={
             <div className="flex items-center space-x-2">
-              <Select defaultValue="7days" data-testid="select-time-range">
+              <Select value={selectedCampaign} onValueChange={setSelectedCampaign} data-testid="select-campaign">
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="All campaigns" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">All campaigns</SelectItem>
+                  {(campaigns as any[])?.map((campaign: any) => (
+                    <SelectItem key={campaign.id} value={campaign.id}>{campaign.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={timeRange} onValueChange={setTimeRange} data-testid="select-time-range">
                 <SelectTrigger className="w-32">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="7days">Last 7 days</SelectItem>
-                  <SelectItem value="30days">Last 30 days</SelectItem>
-                  <SelectItem value="90days">Last 90 days</SelectItem>
+                  <SelectItem value="7">Last 7 days</SelectItem>
+                  <SelectItem value="30">Last 30 days</SelectItem>
+                  <SelectItem value="90">Last 90 days</SelectItem>
                 </SelectContent>
               </Select>
               <Button variant="outline" data-testid="button-export">
@@ -170,54 +204,107 @@ export default function Analytics() {
           </div>
 
           {/* Charts */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 gap-6">
             <Card>
               <CardHeader>
-                <CardTitle>Email Volume Overview</CardTitle>
+                <CardTitle>Email Performance Over Time</CardTitle>
                 <CardDescription>
-                  Total email activity breakdown
+                  Track your email activity and engagement trends
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={overviewData}>
+                <ResponsiveContainer width="100%" height={400}>
+                  <LineChart data={timeseriesData || []}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
+                    <XAxis 
+                      dataKey="date" 
+                      tickFormatter={(value) => {
+                        const date = new Date(value);
+                        return `${date.getMonth() + 1}/${date.getDate()}`;
+                      }}
+                    />
                     <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="value" fill="#3b82f6" />
-                  </BarChart>
+                    <Tooltip 
+                      labelFormatter={(value) => new Date(value).toLocaleDateString()}
+                    />
+                    <Legend />
+                    <Line type="monotone" dataKey="sent" stroke="#3b82f6" strokeWidth={2} name="Sent" />
+                    <Line type="monotone" dataKey="delivered" stroke="#10b981" strokeWidth={2} name="Delivered" />
+                    <Line type="monotone" dataKey="opened" stroke="#8b5cf6" strokeWidth={2} name="Opened" />
+                    <Line type="monotone" dataKey="clicked" stroke="#f59e0b" strokeWidth={2} name="Clicked" />
+                  </LineChart>
                 </ResponsiveContainer>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Engagement Distribution</CardTitle>
-                <CardDescription>
-                  Email engagement breakdown
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={engagementData}
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={100}
-                      dataKey="value"
-                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                    >
-                      {engagementData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Delivery & Engagement Rates</CardTitle>
+                  <CardDescription>
+                    Track delivery and engagement rates over time
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={timeseriesData?.map(d => ({
+                      date: d.date,
+                      deliveryRate: d.sent > 0 ? (d.delivered / d.sent * 100).toFixed(1) : 0,
+                      openRate: d.delivered > 0 ? (d.opened / d.delivered * 100).toFixed(1) : 0,
+                      clickRate: d.opened > 0 ? (d.clicked / d.opened * 100).toFixed(1) : 0,
+                    })) || []}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis 
+                        dataKey="date" 
+                        tickFormatter={(value) => {
+                          const date = new Date(value);
+                          return `${date.getMonth() + 1}/${date.getDate()}`;
+                        }}
+                      />
+                      <YAxis unit="%" />
+                      <Tooltip 
+                        labelFormatter={(value) => new Date(value).toLocaleDateString()}
+                        formatter={(value) => [`${value}%`, '']}
+                      />
+                      <Legend />
+                      <Line type="monotone" dataKey="deliveryRate" stroke="#10b981" strokeWidth={2} name="Delivery Rate" />
+                      <Line type="monotone" dataKey="openRate" stroke="#8b5cf6" strokeWidth={2} name="Open Rate" />
+                      <Line type="monotone" dataKey="clickRate" stroke="#f59e0b" strokeWidth={2} name="Click Rate" />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Issues & Complaints</CardTitle>
+                  <CardDescription>
+                    Monitor bounces and complaints over time
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={timeseriesData || []}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis 
+                        dataKey="date" 
+                        tickFormatter={(value) => {
+                          const date = new Date(value);
+                          return `${date.getMonth() + 1}/${date.getDate()}`;
+                        }}
+                      />
+                      <YAxis />
+                      <Tooltip 
+                        labelFormatter={(value) => new Date(value).toLocaleDateString()}
+                      />
+                      <Legend />
+                      <Line type="monotone" dataKey="bounced" stroke="#ef4444" strokeWidth={2} name="Bounces" />
+                      <Line type="monotone" dataKey="complained" stroke="#dc2626" strokeWidth={2} name="Complaints" />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            </div>
           </div>
 
           {/* Detailed Metrics */}

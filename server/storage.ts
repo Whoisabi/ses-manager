@@ -92,6 +92,16 @@ export interface IStorage {
     totalBounced: number;
     totalComplained: number;
   }>;
+
+  getEmailTimeSeriesData(userId: string, days: number, campaignId?: string): Promise<Array<{
+    date: string;
+    sent: number;
+    delivered: number;
+    opened: number;
+    clicked: number;
+    bounced: number;
+    complained: number;
+  }>>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -793,6 +803,80 @@ export class DatabaseStorage implements IStorage {
       totalBounced,
       totalComplained,
     };
+  }
+
+  async getEmailTimeSeriesData(userId: string, days: number, campaignId?: string): Promise<Array<{
+    date: string;
+    sent: number;
+    delivered: number;
+    opened: number;
+    clicked: number;
+    bounced: number;
+    complained: number;
+  }>> {
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+    startDate.setHours(0, 0, 0, 0);
+
+    // Build where clause based on campaign filter
+    const whereClause: any = {
+      created_at: { gte: startDate }
+    };
+
+    if (campaignId) {
+      whereClause.campaign_id = campaignId;
+    } else {
+      whereClause.campaign = { user_id: userId };
+    }
+
+    // Get all email sends for the date range
+    const emailSends = await prisma.emailSend.findMany({
+      where: whereClause,
+      orderBy: { created_at: 'asc' },
+    });
+
+    // Group by date
+    const dataByDate: Record<string, {
+      sent: number;
+      delivered: number;
+      opened: number;
+      clicked: number;
+      bounced: number;
+      complained: number;
+    }> = {};
+
+    // Initialize all dates in range
+    for (let i = 0; i < days; i++) {
+      const date = new Date();
+      date.setDate(date.getDate() - (days - 1 - i));
+      const dateStr = date.toISOString().split('T')[0];
+      dataByDate[dateStr] = {
+        sent: 0,
+        delivered: 0,
+        opened: 0,
+        clicked: 0,
+        bounced: 0,
+        complained: 0,
+      };
+    }
+
+    // Aggregate data by date
+    emailSends.forEach(send => {
+      const dateStr = send.created_at.toISOString().split('T')[0];
+      if (dataByDate[dateStr]) {
+        dataByDate[dateStr].sent++;
+        if (send.status === 'delivered' || send.delivered_at) dataByDate[dateStr].delivered++;
+        if (send.opened_at) dataByDate[dateStr].opened++;
+        if (send.clicked_at) dataByDate[dateStr].clicked++;
+        if (send.status === 'bounced' || send.bounced_at) dataByDate[dateStr].bounced++;
+        if (send.status === 'complained' || send.complained_at) dataByDate[dateStr].complained++;
+      }
+    });
+
+    // Convert to array format
+    return Object.entries(dataByDate)
+      .map(([date, data]) => ({ date, ...data }))
+      .sort((a, b) => a.date.localeCompare(b.date));
   }
 }
 

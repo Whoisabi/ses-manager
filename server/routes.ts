@@ -610,6 +610,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/analytics/timeseries', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.id;
+      const days = req.query.days ? parseInt(req.query.days as string) : 7;
+      const campaignId = req.query.campaignId as string | undefined;
+      
+      const timeseries = await storage.getEmailTimeSeriesData(userId, days, campaignId);
+      res.json(timeseries);
+    } catch (error) {
+      console.error("Error fetching time series data:", error);
+      res.status(500).json({ message: "Failed to fetch time series data" });
+    }
+  });
+
   // Tracking pixel endpoint (public)
   app.get('/api/tracking/pixel/:trackingId', async (req: Request, res: Response) => {
     try {

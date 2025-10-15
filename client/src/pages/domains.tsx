@@ -47,6 +47,7 @@ export default function Domains() {
   const [newDomain, setNewDomain] = useState("");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [selectedDomain, setSelectedDomain] = useState<any>(null);
+  const [domainDkimTokens, setDomainDkimTokens] = useState<Record<string, string[]>>({});
 
   const { data: identities, isLoading: identitiesLoading, refetch: refetchIdentities } = useQuery<{
     identities: Array<{
@@ -71,6 +72,12 @@ export default function Domains() {
         description: `Verification started for ${data.domain}`,
       });
       setSelectedDomain(data);
+      if (data.dkimTokens && data.dkimTokens.length > 0) {
+        setDomainDkimTokens(prev => ({
+          ...prev,
+          [data.domain]: data.dkimTokens
+        }));
+      }
       setIsAddDialogOpen(false);
       setNewDomain("");
       refetchIdentities();
@@ -304,9 +311,10 @@ export default function Domains() {
                     </div>
                   </CardHeader>
                   {domain.verificationToken && (
-                    <CardContent className="space-y-4">
+                    <CardContent className="space-y-6">
+                      {/* Domain Verification TXT Record */}
                       <div>
-                        <h4 className="font-semibold mb-2">DNS Verification Record</h4>
+                        <h4 className="font-semibold mb-2">1. Domain Verification (TXT Record)</h4>
                         <p className="text-sm text-muted-foreground mb-3">
                           Add this TXT record to your DNS settings to verify domain ownership:
                         </p>
@@ -348,11 +356,147 @@ export default function Domains() {
                           </div>
                         </div>
                       </div>
+
+                      {/* SPF Record */}
+                      <div>
+                        <h4 className="font-semibold mb-2">2. SPF Record (TXT Record)</h4>
+                        <p className="text-sm text-muted-foreground mb-3">
+                          Add this SPF record to authorize AWS SES to send emails from your domain:
+                        </p>
+                        <div className="bg-muted p-3 rounded-md space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <p className="text-xs text-muted-foreground">Name/Host:</p>
+                              <code className="text-sm font-mono" data-testid={`spf-name-${domain.identity}`}>
+                                {domain.identity}
+                              </code>
+                            </div>
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => copyToClipboard(domain.identity)}
+                              data-testid={`button-copy-spf-name-${domain.identity}`}
+                            >
+                              <Copy className="w-4 h-4" />
+                            </Button>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <p className="text-xs text-muted-foreground">Value:</p>
+                              <code className="text-sm font-mono break-all" data-testid={`spf-value-${domain.identity}`}>
+                                v=spf1 include:amazonses.com ~all
+                              </code>
+                            </div>
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => copyToClipboard('v=spf1 include:amazonses.com ~all')}
+                              data-testid={`button-copy-spf-value-${domain.identity}`}
+                            >
+                              <Copy className="w-4 h-4" />
+                            </Button>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground">Type: TXT</p>
+                          </div>
+                        </div>
+                        <Alert className="mt-3">
+                          <Info className="h-4 w-4" />
+                          <AlertDescription className="text-sm">
+                            If you already have an SPF record, add <code className="text-xs">include:amazonses.com</code> before the final mechanism (~all or -all).
+                          </AlertDescription>
+                        </Alert>
+                      </div>
+
+                      {/* DKIM CNAME Records */}
+                      {domainDkimTokens[domain.identity] && domainDkimTokens[domain.identity].length > 0 && (
+                        <div>
+                          <h4 className="font-semibold mb-2">3. DKIM Records (CNAME)</h4>
+                          <p className="text-sm text-muted-foreground mb-3">
+                            Add these CNAME records for email authentication and spam prevention:
+                          </p>
+                          {domainDkimTokens[domain.identity].map((token, index) => (
+                            <div key={index} className="bg-muted p-3 rounded-md space-y-2 mb-3">
+                              <div className="flex items-center justify-between">
+                                <div className="flex-1">
+                                  <p className="text-xs text-muted-foreground">Name/Host:</p>
+                                  <code className="text-sm font-mono break-all" data-testid={`dkim-name-${domain.identity}-${index}`}>
+                                    {token}._domainkey.{domain.identity}
+                                  </code>
+                                </div>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => copyToClipboard(`${token}._domainkey.${domain.identity}`)}
+                                  data-testid={`button-copy-dkim-name-${domain.identity}-${index}`}
+                                >
+                                  <Copy className="w-4 h-4" />
+                                </Button>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <div className="flex-1">
+                                  <p className="text-xs text-muted-foreground">Value:</p>
+                                  <code className="text-sm font-mono break-all" data-testid={`dkim-value-${domain.identity}-${index}`}>
+                                    {token}.dkim.amazonses.com
+                                  </code>
+                                </div>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => copyToClipboard(`${token}.dkim.amazonses.com`)}
+                                  data-testid={`button-copy-dkim-value-${domain.identity}-${index}`}
+                                >
+                                  <Copy className="w-4 h-4" />
+                                </Button>
+                              </div>
+                              <div>
+                                <p className="text-xs text-muted-foreground">Type: CNAME</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* SNS Webhook Configuration */}
+                      <div>
+                        <h4 className="font-semibold mb-2">4. Bounce & Complaint Tracking (Optional)</h4>
+                        <p className="text-sm text-muted-foreground mb-3">
+                          Configure AWS SNS to track bounces and complaints:
+                        </p>
+                        <div className="bg-muted p-3 rounded-md space-y-3">
+                          <div>
+                            <p className="text-xs text-muted-foreground mb-2">Webhook URL:</p>
+                            <div className="flex items-center gap-2">
+                              <code className="text-sm font-mono flex-1 break-all" data-testid={`webhook-url-${domain.identity}`}>
+                                {window.location.origin}/api/sns/notifications
+                              </code>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => copyToClipboard(`${window.location.origin}/api/sns/notifications`)}
+                                data-testid={`button-copy-webhook-${domain.identity}`}
+                              >
+                                <Copy className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+                          <Alert>
+                            <Info className="h-4 w-4" />
+                            <AlertDescription className="text-sm">
+                              <ol className="list-decimal list-inside space-y-1 mt-2">
+                                <li>Go to AWS SNS Console and create topics for "Bounces" and "Complaints"</li>
+                                <li>Subscribe this webhook URL to both topics (HTTPS subscription)</li>
+                                <li>In AWS SES, configure your domain to publish bounce and complaint notifications to these SNS topics</li>
+                              </ol>
+                            </AlertDescription>
+                          </Alert>
+                        </div>
+                      </div>
                       
                       <Alert>
                         <Info className="h-4 w-4" />
                         <AlertDescription className="text-sm">
-                          After adding the DNS record, it may take up to 72 hours for verification to complete. 
+                          After adding all DNS records, it may take up to 72 hours for verification to complete. 
                           You can refresh this page to check the status.
                         </AlertDescription>
                       </Alert>
