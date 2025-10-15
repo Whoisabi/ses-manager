@@ -167,6 +167,143 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // SES Identity Management routes
+  app.get('/api/ses/identities', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.id;
+      await awsService.initialize(userId);
+      const identities = await awsService.getAllIdentitiesWithStatus();
+      res.json({ identities });
+    } catch (error) {
+      console.error("Error fetching SES identities:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to fetch identities";
+      res.status(500).json({ message: errorMessage, identities: [] });
+    }
+  });
+
+  app.post('/api/ses/domains', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.id;
+      const { domain } = req.body;
+      
+      if (!domain) {
+        return res.status(400).json({ message: "Domain is required" });
+      }
+
+      await awsService.initialize(userId);
+      const result = await awsService.verifyDomainIdentity(domain);
+      
+      res.json({ 
+        success: true, 
+        domain,
+        verificationToken: result.verificationToken,
+        dkimTokens: result.dkimTokens
+      });
+    } catch (error) {
+      console.error("Error verifying domain:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to verify domain";
+      res.status(500).json({ success: false, message: errorMessage });
+    }
+  });
+
+  app.post('/api/ses/emails', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.id;
+      const { email } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({ message: "Email is required" });
+      }
+
+      await awsService.initialize(userId);
+      await awsService.verifyEmailIdentity(email);
+      
+      res.json({ 
+        success: true, 
+        message: `Verification email sent to ${email}. Please check your inbox and click the verification link.`,
+        email
+      });
+    } catch (error) {
+      console.error("Error verifying email:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to verify email";
+      res.status(500).json({ success: false, message: errorMessage });
+    }
+  });
+
+  app.get('/api/ses/domains/:domain/dkim', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.id;
+      const { domain } = req.params;
+
+      await awsService.initialize(userId);
+      const dkimTokens = await awsService.getDomainDkimTokens(domain);
+      
+      res.json({ dkimTokens });
+    } catch (error) {
+      console.error("Error getting DKIM tokens:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to get DKIM tokens";
+      res.status(500).json({ message: errorMessage, dkimTokens: [] });
+    }
+  });
+
+  app.delete('/api/ses/identities/:identity', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.id;
+      const { identity } = req.params;
+
+      await awsService.initialize(userId);
+      await awsService.deleteIdentity(identity);
+      
+      res.json({ success: true, message: `Identity ${identity} deleted successfully` });
+    } catch (error) {
+      console.error("Error deleting identity:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to delete identity";
+      res.status(500).json({ success: false, message: errorMessage });
+    }
+  });
+
+  app.get('/api/ses/quota', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.id;
+      await awsService.initialize(userId);
+      const quota = await awsService.getSendingQuota();
+      
+      res.json(quota);
+    } catch (error) {
+      console.error("Error getting sending quota:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to get sending quota";
+      res.status(500).json({ message: errorMessage });
+    }
+  });
+
+  app.post('/api/ses/send-test', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.id;
+      const { to, from } = req.body;
+      
+      if (!to || !from) {
+        return res.status(400).json({ message: "Both 'to' and 'from' email addresses are required" });
+      }
+
+      const messageId = await emailService.sendSingleEmail(userId, {
+        to,
+        from,
+        subject: 'Test Email from SES Manager',
+        content: '<h1>Test Email</h1><p>This is a test email sent from SES Manager. If you received this, your AWS SES configuration is working correctly!</p>',
+      });
+      
+      res.json({ 
+        success: true, 
+        message: 'Test email sent successfully',
+        messageId 
+      });
+    } catch (error) {
+      console.error("Error sending test email:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to send test email";
+      res.status(500).json({ success: false, message: errorMessage });
+    }
+  });
+
   // Email sending routes
   app.post('/api/email/send', isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {

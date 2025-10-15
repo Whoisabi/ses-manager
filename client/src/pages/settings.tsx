@@ -6,9 +6,12 @@ import Header from "@/components/layout/header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings as SettingsIcon, Shield, Key, User, Mail } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { Settings as SettingsIcon, Shield, Key, User, Mail, Send } from "lucide-react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import CredentialsModal from "@/components/aws/credentials-modal";
 import { useState } from "react";
 
@@ -16,10 +19,34 @@ export default function Settings() {
   const { toast } = useToast();
   const { user, isLoading } = useAuth();
   const [isCredentialsModalOpen, setIsCredentialsModalOpen] = useState(false);
+  const [testEmailFrom, setTestEmailFrom] = useState("");
+  const [testEmailTo, setTestEmailTo] = useState("");
 
   const { data: awsCredentials } = useQuery({
     queryKey: ["/api/aws/credentials"],
     enabled: !!user,
+  });
+
+  const sendTestEmailMutation = useMutation({
+    mutationFn: async ({ from, to }: { from: string; to: string }) => {
+      const res = await apiRequest("POST", "/api/ses/send-test", { from, to });
+      return await res.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Test Email Sent",
+        description: data.message || "Test email sent successfully!",
+      });
+      setTestEmailFrom("");
+      setTestEmailTo("");
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
   });
 
   useEffect(() => {
@@ -68,6 +95,10 @@ export default function Settings() {
               <TabsTrigger value="aws" data-testid="tab-aws">
                 <Shield className="w-4 h-4 mr-2" />
                 AWS Credentials
+              </TabsTrigger>
+              <TabsTrigger value="test-email" data-testid="tab-test-email">
+                <Send className="w-4 h-4 mr-2" />
+                Test Email
               </TabsTrigger>
             </TabsList>
             
@@ -226,6 +257,79 @@ export default function Settings() {
                         Connect your AWS credentials to view usage statistics
                       </p>
                     </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="test-email">
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Send className="w-5 h-5" />
+                      Send Test Email
+                    </CardTitle>
+                    <CardDescription>
+                      Test your AWS SES configuration by sending a test email
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="test-from">From Email</Label>
+                      <Input
+                        id="test-from"
+                        type="email"
+                        placeholder="sender@yourdomain.com"
+                        value={testEmailFrom}
+                        onChange={(e) => setTestEmailFrom(e.target.value)}
+                        data-testid="input-test-from"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Must be a verified email address or domain in AWS SES
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="test-to">To Email</Label>
+                      <Input
+                        id="test-to"
+                        type="email"
+                        placeholder="recipient@example.com"
+                        value={testEmailTo}
+                        onChange={(e) => setTestEmailTo(e.target.value)}
+                        data-testid="input-test-to"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Email address to send the test email to
+                      </p>
+                    </div>
+
+                    <Button
+                      onClick={() => {
+                        if (!testEmailFrom || !testEmailTo) {
+                          toast({
+                            title: "Missing Information",
+                            description: "Please provide both From and To email addresses",
+                            variant: "destructive",
+                          });
+                          return;
+                        }
+                        sendTestEmailMutation.mutate({ from: testEmailFrom, to: testEmailTo });
+                      }}
+                      disabled={sendTestEmailMutation.isPending || !(awsCredentials as any)?.connected}
+                      className="w-full"
+                      data-testid="button-send-test"
+                    >
+                      <Send className="w-4 h-4 mr-2" />
+                      {sendTestEmailMutation.isPending ? "Sending..." : "Send Test Email"}
+                    </Button>
+
+                    {!(awsCredentials as any)?.connected && (
+                      <p className="text-sm text-amber-600 dark:text-amber-500">
+                        Please configure your AWS credentials first in the AWS Credentials tab
+                      </p>
+                    )}
                   </CardContent>
                 </Card>
               </div>

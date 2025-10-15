@@ -14,6 +14,9 @@ import Templates from "@/pages/templates";
 import Recipients from "@/pages/recipients";
 import Analytics from "@/pages/analytics";
 import Settings from "@/pages/settings";
+import SESDashboard from "@/pages/ses-dashboard";
+import Domains from "@/pages/domains";
+import EmailVerification from "@/pages/email-verification";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -27,6 +30,9 @@ function Router() {
       <ProtectedRoute path="/templates" component={Templates} />
       <ProtectedRoute path="/recipients" component={Recipients} />
       <ProtectedRoute path="/analytics" component={Analytics} />
+      <ProtectedRoute path="/ses-dashboard" component={SESDashboard} />
+      <ProtectedRoute path="/domains" component={Domains} />
+      <ProtectedRoute path="/email-verification" component={EmailVerification} />
       <ProtectedRoute path="/settings" component={Settings} />
       <Route component={NotFound} />
     </Switch>

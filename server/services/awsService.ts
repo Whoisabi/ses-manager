@@ -1,4 +1,4 @@
-import { SESClient, SendEmailCommand, SendBulkTemplatedEmailCommand, CreateTemplateCommand, DeleteTemplateCommand, ListTemplatesCommand, ListIdentitiesCommand, GetIdentityVerificationAttributesCommand } from '@aws-sdk/client-ses';
+import { SESClient, SendEmailCommand, SendBulkTemplatedEmailCommand, CreateTemplateCommand, DeleteTemplateCommand, ListTemplatesCommand, ListIdentitiesCommand, GetIdentityVerificationAttributesCommand, VerifyDomainIdentityCommand, VerifyEmailIdentityCommand, VerifyDomainDkimCommand, DeleteIdentityCommand, GetSendQuotaCommand, GetIdentityDkimAttributesCommand } from '@aws-sdk/client-ses';
 import { storage } from '../storage';
 import { decrypt } from './encryptionService';
 
@@ -240,6 +240,127 @@ export class AWSService {
       console.error('Failed to list verified identities:', error);
       return [];
     }
+  }
+
+  async verifyDomainIdentity(domain: string): Promise<{ verificationToken: string; dkimTokens: string[] }> {
+    const sesClient = this.ensureInitialized();
+    
+    const verifyCommand = new VerifyDomainIdentityCommand({
+      Domain: domain
+    });
+    
+    const verifyResponse = await sesClient.send(verifyCommand);
+    
+    const dkimCommand = new VerifyDomainDkimCommand({
+      Domain: domain
+    });
+    
+    const dkimResponse = await sesClient.send(dkimCommand);
+    
+    return {
+      verificationToken: verifyResponse.VerificationToken!,
+      dkimTokens: dkimResponse.DkimTokens || []
+    };
+  }
+
+  async verifyEmailIdentity(email: string): Promise<void> {
+    const sesClient = this.ensureInitialized();
+    
+    const command = new VerifyEmailIdentityCommand({
+      EmailAddress: email
+    });
+    
+    await sesClient.send(command);
+  }
+
+  async getDomainDkimTokens(domain: string): Promise<string[]> {
+    const sesClient = this.ensureInitialized();
+    
+    const command = new GetIdentityDkimAttributesCommand({
+      Identities: [domain]
+    });
+    
+    const response = await sesClient.send(command);
+    const dkimAttributes = response.DkimAttributes?.[domain];
+    return dkimAttributes?.DkimTokens || [];
+  }
+
+  async getAllIdentitiesWithStatus(): Promise<Array<{
+    identity: string;
+    type: 'email' | 'domain';
+    status: string;
+    verificationToken?: string;
+    dkimTokens?: string[];
+  }>> {
+    const sesClient = this.ensureInitialized();
+
+    try {
+      const listCommand = new ListIdentitiesCommand({});
+      const listResponse = await sesClient.send(listCommand);
+      
+      const allIdentities = listResponse.Identities || [];
+      
+      if (allIdentities.length === 0) {
+        return [];
+      }
+
+      const verificationCommand = new GetIdentityVerificationAttributesCommand({
+        Identities: allIdentities
+      });
+      
+      const verificationResponse = await sesClient.send(verificationCommand);
+      
+      const results = [];
+      
+      for (const identity of allIdentities) {
+        const verificationStatus = verificationResponse.VerificationAttributes?.[identity];
+        const type = identity.includes('@') ? 'email' : 'domain';
+        
+        const result: any = {
+          identity,
+          type,
+          status: verificationStatus?.VerificationStatus || 'Pending'
+        };
+
+        if (type === 'domain' && verificationStatus?.VerificationToken) {
+          result.verificationToken = verificationStatus.VerificationToken;
+        }
+
+        results.push(result);
+      }
+      
+      return results;
+    } catch (error) {
+      console.error('Failed to get identities with status:', error);
+      return [];
+    }
+  }
+
+  async deleteIdentity(identity: string): Promise<void> {
+    const sesClient = this.ensureInitialized();
+    
+    const command = new DeleteIdentityCommand({
+      Identity: identity
+    });
+    
+    await sesClient.send(command);
+  }
+
+  async getSendingQuota(): Promise<{
+    max24HourSend: number;
+    maxSendRate: number;
+    sentLast24Hours: number;
+  }> {
+    const sesClient = this.ensureInitialized();
+    
+    const command = new GetSendQuotaCommand({});
+    const response = await sesClient.send(command);
+    
+    return {
+      max24HourSend: response.Max24HourSend || 0,
+      maxSendRate: response.MaxSendRate || 0,
+      sentLast24Hours: response.SentLast24Hours || 0
+    };
   }
 }
 

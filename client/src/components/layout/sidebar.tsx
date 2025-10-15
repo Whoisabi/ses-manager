@@ -8,13 +8,19 @@ import {
   FileText, 
   Users, 
   Settings,
-  LogOut
+  LogOut,
+  Shield,
+  Globe,
+  MailCheck
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import DOMPurify from 'dompurify';
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: BarChart3 },
+  { name: "SES Dashboard", href: "/ses-dashboard", icon: Shield },
+  { name: "Domains", href: "/domains", icon: Globe },
+  { name: "Email Verification", href: "/email-verification", icon: MailCheck },
   { name: "Send Email", href: "/send-email", icon: NotebookPen },
   { name: "Templates", href: "/templates", icon: FileText },
   { name: "Recipients", href: "/recipients", icon: Users },
