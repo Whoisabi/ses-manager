@@ -3,3 +3,4 @@
 [x] 3. Verify the project is working using the screenshot tool
 [x] 4. Inform user the import is completed and they can start building, mark the import as completed using the complete_project_import tool
 [x] 5. Created PostgreSQL database and ran Prisma migrations to fix registration error
+[x] 6. Fixed single email sending by making campaign_id optional in EmailSend model
