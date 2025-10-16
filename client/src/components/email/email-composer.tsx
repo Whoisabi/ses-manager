@@ -2,17 +2,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { NotebookPen, Save, Upload } from "lucide-react";
+import { NotebookPen, Save, Upload, Plus, Mail } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import RichTextEditor from "./rich-text-editor";
 import type { QuickSendForm } from "@/lib/types";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useState } from "react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const quickSendSchema = z.object({
   to: z.string().email("Please enter a valid email address"),
@@ -27,6 +30,9 @@ interface EmailComposerProps {
 
 export default function EmailComposer({ showHeader = true }: EmailComposerProps) {
   const { toast } = useToast();
+  const [fromMode, setFromMode] = useState<"select" | "custom">("select");
+  const [customPrefix, setCustomPrefix] = useState("");
+  const [selectedDomain, setSelectedDomain] = useState("");
 
   const form = useForm<QuickSendForm>({
     resolver: zodResolver(quickSendSchema),
@@ -36,6 +42,11 @@ export default function EmailComposer({ showHeader = true }: EmailComposerProps)
       content: "",
       from: "",
     },
+  });
+
+  // Fetch verified identities (domains and emails)
+  const { data: identities, isLoading: loadingIdentities } = useQuery({
+    queryKey: ["/api/ses/identities"],
   });
 
   const sendEmailMutation = useMutation({
@@ -48,6 +59,8 @@ export default function EmailComposer({ showHeader = true }: EmailComposerProps)
         description: "Email sent successfully",
       });
       form.reset();
+      setCustomPrefix("");
+      setSelectedDomain("");
       queryClient.invalidateQueries({ queryKey: ["/api/email-sends"] });
       queryClient.invalidateQueries({ queryKey: ["/api/analytics/stats"] });
     },
@@ -75,6 +88,26 @@ export default function EmailComposer({ showHeader = true }: EmailComposerProps)
     sendEmailMutation.mutate(data);
   };
 
+  // Get verified domains and emails
+  const verifiedIdentities = (identities as any[])?.filter((i: any) => i.verified) || [];
+  const verifiedDomains = verifiedIdentities.filter((i: any) => !i.identity.includes("@"));
+  const verifiedEmails = verifiedIdentities.filter((i: any) => i.identity.includes("@"));
+
+  // Handle custom domain email construction
+  const handleCustomDomainChange = (domain: string) => {
+    setSelectedDomain(domain);
+    if (customPrefix) {
+      form.setValue("from", `${customPrefix}@${domain}`);
+    }
+  };
+
+  const handleCustomPrefixChange = (prefix: string) => {
+    setCustomPrefix(prefix);
+    if (selectedDomain) {
+      form.setValue("from", `${prefix}@${selectedDomain}`);
+    }
+  };
+
   const content = (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleQuickSend)} className="space-y-4">
@@ -83,15 +116,105 @@ export default function EmailComposer({ showHeader = true }: EmailComposerProps)
           name="from"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>From</FormLabel>
-              <FormControl>
-                <Input 
-                  type="email"
-                  placeholder="your-email@example.com"
-                  data-testid="input-email-from"
-                  {...field}
-                />
-              </FormControl>
+              <FormLabel>Sender Email</FormLabel>
+              <Tabs value={fromMode} onValueChange={(v) => setFromMode(v as "select" | "custom")} className="w-full">
+                <TabsList className="grid w-full grid-cols-2 mb-3">
+                  <TabsTrigger value="select" data-testid="tab-select-verified">
+                    <Mail className="w-4 h-4 mr-2" />
+                    Verified Email
+                  </TabsTrigger>
+                  <TabsTrigger value="custom" data-testid="tab-custom-domain">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Custom Domain Email
+                  </TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="select" className="mt-0">
+                  <Select 
+                    onValueChange={(value) => {
+                      field.onChange(value);
+                    }}
+                    value={field.value}
+                    disabled={loadingIdentities}
+                  >
+                    <FormControl>
+                      <SelectTrigger data-testid="select-from-email">
+                        <SelectValue placeholder={loadingIdentities ? "Loading..." : "Select verified email..."} />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {verifiedEmails.length > 0 && (
+                        <>
+                          <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Verified Emails</div>
+                          {verifiedEmails.map((identity: any) => (
+                            <SelectItem key={identity.identity} value={identity.identity}>
+                              {identity.identity}
+                            </SelectItem>
+                          ))}
+                        </>
+                      )}
+                      {verifiedDomains.length > 0 && verifiedEmails.length > 0 && (
+                        <div className="h-px bg-border my-1" />
+                      )}
+                      {verifiedDomains.length > 0 && (
+                        <>
+                          <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Verified Domains (any email@domain)</div>
+                          {verifiedDomains.map((identity: any) => (
+                            <SelectItem key={identity.identity} value={`no-reply@${identity.identity}`}>
+                              Any email @ {identity.identity}
+                            </SelectItem>
+                          ))}
+                        </>
+                      )}
+                      {verifiedIdentities.length === 0 && (
+                        <div className="px-2 py-6 text-center text-sm text-muted-foreground">
+                          No verified emails or domains found. Please verify your domain first.
+                        </div>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </TabsContent>
+
+                <TabsContent value="custom" className="mt-0 space-y-3">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="email-prefix" className="text-xs">Email Prefix</Label>
+                      <Input
+                        id="email-prefix"
+                        placeholder="support, no-reply, etc."
+                        value={customPrefix}
+                        onChange={(e) => handleCustomPrefixChange(e.target.value)}
+                        data-testid="input-email-prefix"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="domain-select" className="text-xs">Verified Domain</Label>
+                      <Select 
+                        value={selectedDomain}
+                        onValueChange={handleCustomDomainChange}
+                        disabled={verifiedDomains.length === 0}
+                      >
+                        <SelectTrigger id="domain-select" data-testid="select-custom-domain">
+                          <SelectValue placeholder={verifiedDomains.length === 0 ? "No domains" : "Select..."} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {verifiedDomains.map((identity: any) => (
+                            <SelectItem key={identity.identity} value={identity.identity}>
+                              {identity.identity}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  {customPrefix && selectedDomain && (
+                    <div className="bg-muted px-3 py-2 rounded-md">
+                      <p className="text-xs text-muted-foreground mb-1">Constructed Email:</p>
+                      <p className="font-mono text-sm font-medium">{customPrefix}@{selectedDomain}</p>
+                    </div>
+                  )}
+                </TabsContent>
+              </Tabs>
               <FormMessage />
             </FormItem>
           )}

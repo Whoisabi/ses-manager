@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import Sidebar from "@/components/layout/sidebar";
@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload, Users, FileText } from "lucide-react";
+import { Upload, Users, FileText, Mail, Plus } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useForm } from "react-hook-form";
@@ -30,6 +30,9 @@ const bulkSendSchema = z.object({
 export default function SendEmail() {
   const { toast } = useToast();
   const { user, isLoading } = useAuth();
+  const [fromMode, setFromMode] = useState<"select" | "custom">("select");
+  const [customPrefix, setCustomPrefix] = useState("");
+  const [selectedDomain, setSelectedDomain] = useState("");
 
   const form = useForm<BulkSendForm>({
     resolver: zodResolver(bulkSendSchema),
@@ -51,6 +54,12 @@ export default function SendEmail() {
     enabled: !!user,
   });
 
+  // Fetch verified identities (domains and emails)
+  const { data: identities, isLoading: loadingIdentities } = useQuery({
+    queryKey: ["/api/ses/identities"],
+    enabled: !!user,
+  });
+
   const bulkSendMutation = useMutation({
     mutationFn: async (data: BulkSendForm) => {
       await apiRequest("POST", "/api/email/send-bulk", data);
@@ -61,6 +70,8 @@ export default function SendEmail() {
         description: "Bulk email campaign started successfully",
       });
       form.reset();
+      setCustomPrefix("");
+      setSelectedDomain("");
       queryClient.invalidateQueries({ queryKey: ["/api/email-sends"] });
       queryClient.invalidateQueries({ queryKey: ["/api/analytics/stats"] });
     },
@@ -109,6 +120,26 @@ export default function SendEmail() {
   const handleBulkSend = (data: BulkSendForm) => {
     bulkSendMutation.mutate(data);
   }
+
+  // Get verified domains and emails
+  const verifiedIdentities = (identities as any)?.identities?.filter((i: any) => i.verified) || [];
+  const verifiedDomains = verifiedIdentities.filter((i: any) => !i.identity.includes("@"));
+  const verifiedEmails = verifiedIdentities.filter((i: any) => i.identity.includes("@"));
+
+  // Handle custom domain email construction
+  const handleCustomDomainChange = (domain: string) => {
+    setSelectedDomain(domain);
+    if (customPrefix) {
+      form.setValue("from", `${customPrefix}@${domain}`);
+    }
+  };
+
+  const handleCustomPrefixChange = (prefix: string) => {
+    setCustomPrefix(prefix);
+    if (selectedDomain) {
+      form.setValue("from", `${prefix}@${selectedDomain}`);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -210,17 +241,109 @@ export default function SendEmail() {
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Sender Email</FormLabel>
-                              <FormControl>
-                                <Input 
-                                  placeholder="Enter sender email (must be verified in AWS SES)"
-                                  data-testid="input-bulk-from"
-                                  {...field}
-                                />
-                              </FormControl>
+                              <Tabs value={fromMode} onValueChange={(v) => setFromMode(v as "select" | "custom")} className="w-full">
+                                <TabsList className="grid w-full grid-cols-2 mb-3">
+                                  <TabsTrigger value="select" data-testid="tab-bulk-select-verified">
+                                    <Mail className="w-4 h-4 mr-2" />
+                                    Verified Email
+                                  </TabsTrigger>
+                                  <TabsTrigger value="custom" data-testid="tab-bulk-custom-domain">
+                                    <Plus className="w-4 h-4 mr-2" />
+                                    Custom Domain Email
+                                  </TabsTrigger>
+                                </TabsList>
+                                
+                                <TabsContent value="select" className="mt-0">
+                                  <Select 
+                                    onValueChange={(value) => {
+                                      field.onChange(value);
+                                    }}
+                                    value={field.value}
+                                    disabled={loadingIdentities}
+                                  >
+                                    <FormControl>
+                                      <SelectTrigger data-testid="select-bulk-from-email">
+                                        <SelectValue placeholder={loadingIdentities ? "Loading..." : "Select verified email..."} />
+                                      </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                      {verifiedEmails.length > 0 && (
+                                        <>
+                                          <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Verified Emails</div>
+                                          {verifiedEmails.map((identity: any) => (
+                                            <SelectItem key={identity.identity} value={identity.identity}>
+                                              {identity.identity}
+                                            </SelectItem>
+                                          ))}
+                                        </>
+                                      )}
+                                      {verifiedDomains.length > 0 && verifiedEmails.length > 0 && (
+                                        <div className="h-px bg-border my-1" />
+                                      )}
+                                      {verifiedDomains.length > 0 && (
+                                        <>
+                                          <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Verified Domains (any email@domain)</div>
+                                          {verifiedDomains.map((identity: any) => (
+                                            <SelectItem key={identity.identity} value={`no-reply@${identity.identity}`}>
+                                              Any email @ {identity.identity}
+                                            </SelectItem>
+                                          ))}
+                                        </>
+                                      )}
+                                      {verifiedIdentities.length === 0 && (
+                                        <div className="px-2 py-6 text-center text-sm text-muted-foreground">
+                                          No verified emails or domains found. Please verify your domain first.
+                                        </div>
+                                      )}
+                                    </SelectContent>
+                                  </Select>
+                                </TabsContent>
+
+                                <TabsContent value="custom" className="mt-0 space-y-3">
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div className="space-y-2">
+                                      <Label htmlFor="bulk-email-prefix" className="text-xs">Email Prefix</Label>
+                                      <Input
+                                        id="bulk-email-prefix"
+                                        placeholder="support, no-reply, etc."
+                                        value={customPrefix}
+                                        onChange={(e) => handleCustomPrefixChange(e.target.value)}
+                                        data-testid="input-bulk-email-prefix"
+                                      />
+                                    </div>
+                                    <div className="space-y-2">
+                                      <Label htmlFor="bulk-domain-select" className="text-xs">Verified Domain</Label>
+                                      <Select 
+                                        value={selectedDomain}
+                                        onValueChange={handleCustomDomainChange}
+                                        disabled={verifiedDomains.length === 0}
+                                      >
+                                        <SelectTrigger id="bulk-domain-select" data-testid="select-bulk-custom-domain">
+                                          <SelectValue placeholder={verifiedDomains.length === 0 ? "No domains" : "Select..."} />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {verifiedDomains.map((identity: any) => (
+                                            <SelectItem key={identity.identity} value={identity.identity}>
+                                              {identity.identity}
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                  </div>
+                                  {customPrefix && selectedDomain && (
+                                    <div className="bg-muted px-3 py-2 rounded-md">
+                                      <p className="text-xs text-muted-foreground mb-1">Constructed Email:</p>
+                                      <p className="font-mono text-sm font-medium">{customPrefix}@{selectedDomain}</p>
+                                    </div>
+                                  )}
+                                </TabsContent>
+                              </Tabs>
                               <FormMessage />
                             </FormItem>
                           )}
                         />
+                        
                         <FormField
                           control={form.control}
                           name="recipientListId"
@@ -276,7 +399,6 @@ export default function SendEmail() {
                               <FormLabel>Content</FormLabel>
                               <FormControl>
                                 <div className="min-h-[300px] border rounded-md">
-                                  {/* Note: In a real implementation, you'd use a rich text editor here */}
                                   <textarea
                                     className="w-full h-full min-h-[300px] p-3 border-0 resize-none focus:outline-none"
                                     placeholder="Enter your email content... You can use variables like {{firstName}}, {{lastName}}, {{email}}"
