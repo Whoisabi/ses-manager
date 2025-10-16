@@ -1,18 +1,21 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Shield, Mail, Globe, CheckCircle2, Clock, AlertCircle, Plus } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Shield, Mail, Globe, CheckCircle2, Clock, AlertCircle, Plus, Copy, Check } from "lucide-react";
 import { Link } from "wouter";
 
 export default function SESDashboard() {
   const { toast } = useToast();
   const { user, isLoading } = useAuth();
+  const [copiedWebhook, setCopiedWebhook] = useState(false);
 
   const { data: identities, isLoading: identitiesLoading, refetch: refetchIdentities } = useQuery<{
     identities: Array<{
@@ -34,6 +37,78 @@ export default function SESDashboard() {
     queryKey: ["/api/ses/quota"],
     enabled: !!user,
   });
+
+  const { data: trackingConfig, isLoading: trackingLoading } = useQuery<{
+    isEnabled: boolean;
+    webhookUrl?: string;
+  }>({
+    queryKey: ["/api/tracking/config"],
+    enabled: !!user,
+  });
+
+  const enableTrackingMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("/api/tracking/enable", {
+        method: "POST",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tracking/config"] });
+      toast({
+        title: "Tracking Enabled",
+        description: "Bounce and complaint tracking has been enabled successfully.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to enable tracking",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const disableTrackingMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("/api/tracking/disable", {
+        method: "POST",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tracking/config"] });
+      toast({
+        title: "Tracking Disabled",
+        description: "Bounce and complaint tracking has been disabled.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to disable tracking",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleTrackingToggle = (checked: boolean) => {
+    if (checked) {
+      enableTrackingMutation.mutate();
+    } else {
+      disableTrackingMutation.mutate();
+    }
+  };
+
+  const copyWebhookUrl = () => {
+    if (trackingConfig?.webhookUrl) {
+      navigator.clipboard.writeText(trackingConfig.webhookUrl);
+      setCopiedWebhook(true);
+      setTimeout(() => setCopiedWebhook(false), 2000);
+      toast({
+        title: "Copied",
+        description: "Webhook URL copied to clipboard",
+      });
+    }
+  };
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -102,6 +177,75 @@ export default function SESDashboard() {
         />
         
         <div className="p-6 space-y-6">
+          <Card data-testid="card-bounce-complaint-tracking">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Shield className="w-5 h-5" />
+                    Bounce & Complaint Tracking {trackingConfig?.isEnabled && <Badge variant="default" className="bg-green-500">Active</Badge>}
+                  </CardTitle>
+                  <CardDescription>
+                    Configure AWS SNS to track bounces and complaints
+                  </CardDescription>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Switch
+                    checked={trackingConfig?.isEnabled || false}
+                    onCheckedChange={handleTrackingToggle}
+                    disabled={trackingLoading || enableTrackingMutation.isPending || disableTrackingMutation.isPending}
+                    data-testid="switch-tracking-toggle"
+                  />
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {trackingLoading ? (
+                <div className="text-center py-4">Loading...</div>
+              ) : trackingConfig?.isEnabled ? (
+                <div className="space-y-4">
+                  <div className="border rounded-lg p-4 bg-muted/20">
+                    <p className="text-sm font-medium mb-2">Webhook URL:</p>
+                    <div className="flex items-center gap-2">
+                      <code className="flex-1 text-sm bg-background border rounded px-3 py-2 break-all" data-testid="text-webhook-url">
+                        {trackingConfig.webhookUrl}
+                      </code>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={copyWebhookUrl}
+                        data-testid="button-copy-webhook"
+                      >
+                        {copiedWebhook ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                    <CheckCircle2 className="w-4 h-4 mt-0.5 text-green-500" />
+                    <div>
+                      <p className="font-medium text-foreground">Tracking is active</p>
+                      <p className="mt-1">SNS topics are configured and subscribed. Bounces, complaints, and deliveries are being tracked automatically.</p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                    <AlertCircle className="w-4 h-4 mt-0.5" />
+                    <div>
+                      <p>Enable tracking to automatically configure AWS SNS topics and subscribe to bounce, complaint, and delivery notifications.</p>
+                      <ol className="list-decimal list-inside mt-2 space-y-1">
+                        <li>Toggle the switch to enable tracking</li>
+                        <li>SNS topics will be created automatically</li>
+                        <li>All verified identities will be configured</li>
+                      </ol>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <Card data-testid="card-quota">
               <CardHeader className="pb-3">
