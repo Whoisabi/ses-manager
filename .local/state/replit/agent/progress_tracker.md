@@ -125,3 +125,7 @@
 [x] 125. Applied fix to both domain and email identities while preserving domain enrichment (domainId, dnsRecords) (2025-10-16)
 [x] 126. Architect reviewed and approved - no regressions, fix aligns with frontend filtering logic (2025-10-16)
 [x] 127. ✅ VERIFIED EMAIL SELECTOR FIX COMPLETE - Users can now select verified emails and domains in send mail (2025-10-16)
+[x] 128. FIXED: Browser caching issue - API returned 304 with old cached response without verified property (2025-10-16)
+[x] 129. Added Cache-Control headers to /api/ses/identities endpoint to prevent browser caching (2025-10-16)
+[x] 130. Headers added: Cache-Control: no-cache, no-store, must-revalidate; Pragma: no-cache; Expires: 0 (2025-10-16)
+[x] 131. ✅ BROWSER CACHING FIX COMPLETE - API now forces fresh data, user needs to hard refresh browser (2025-10-16)

@@ -196,6 +196,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
       );
       
+      // Prevent browser caching to ensure fresh data
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
       res.json({ identities: enrichedIdentities });
     } catch (error) {
       console.error("Error fetching SES identities:", error);
