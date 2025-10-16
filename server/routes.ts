@@ -183,12 +183,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const dnsRecords = await storage.getDnsRecords(domainRecord.id);
               return {
                 ...identity,
+                verified: identity.status === 'Success',
                 domainId: domainRecord.id,
                 dnsRecords,
               };
             }
           }
-          return identity;
+          return {
+            ...identity,
+            verified: identity.status === 'Success',
+          };
         })
       );
       
