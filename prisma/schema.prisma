@@ -1,149 +1,191 @@
-// Prisma schema for ses-manager
-// Save as prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-generator client {
-  provider = "prisma-client-js"
-}
-
 model User {
-  id               String   @id @default(uuid())
-  email            String   @unique
-  password         String
-  first_name       String?
-  last_name        String?
+  id                String          @id(map: "User_pkey") @default(uuid())
+  email             String          @unique(map: "User_email_key")
+  password          String
+  first_name        String?
+  last_name         String?
   profile_image_url String?
-  created_at       DateTime @default(now())
-  updated_at       DateTime @updatedAt
-  aws_credentials  AwsCredential[]
-  email_templates  EmailTemplate[]
-  recipient_lists  RecipientList[]
-  email_campaigns  EmailCampaign[]
-  
+  created_at        DateTime        @default(now())
+  updated_at        DateTime        @updatedAt
+  aws_credentials   AwsCredential[]
+  domains           Domain[]
+  email_campaigns   EmailCampaign[]
+  email_templates   EmailTemplate[]
+  recipient_lists   RecipientList[]
+
   @@map("users")
 }
 
 model AwsCredential {
-  id                 String   @id @default(uuid())
-  user_id            String
-  region             String
+  id                   String   @id @default(uuid())
+  user_id              String
+  region               String
   encrypted_access_key String
   encrypted_secret_key String
-  created_at         DateTime @default(now())
-  updated_at         DateTime @updatedAt
-  user               User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  
+  created_at           DateTime @default(now())
+  updated_at           DateTime @updatedAt
+  user                 User     @relation(fields: [user_id], references: [id], onDelete: Cascade, map: "AwsCredential_user_id_fkey")
+
   @@map("aws_credentials")
 }
 
 model EmailTemplate {
-  id         String   @id @default(uuid())
+  id         String          @id(map: "EmailTemplate_pkey") @default(uuid())
   user_id    String
   name       String
   subject    String
   content    String
   variables  String[]
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  created_at DateTime        @default(now())
+  updated_at DateTime        @updatedAt
   campaigns  EmailCampaign[] @relation("TemplateToCampaign")
-  
+  user       User            @relation(fields: [user_id], references: [id], onDelete: Cascade, map: "EmailTemplate_user_id_fkey")
+
   @@map("email_templates")
 }
 
 model RecipientList {
-  id          String   @id @default(uuid())
+  id          String          @id(map: "RecipientList_pkey") @default(uuid())
   user_id     String
   name        String
   description String?
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
-  user        User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  recipients  Recipient[]
+  created_at  DateTime        @default(now())
+  updated_at  DateTime        @updatedAt
   campaigns   EmailCampaign[] @relation("RecipientListToCampaign")
-  
+  user        User            @relation(fields: [user_id], references: [id], onDelete: Cascade, map: "RecipientList_user_id_fkey")
+  recipients  Recipient[]
+
   @@map("recipient_lists")
 }
 
 model Recipient {
-  id         String   @id @default(uuid())
+  id         String        @id(map: "Recipient_pkey") @default(uuid())
   list_id    String
   email      String
   first_name String?
   last_name  String?
   metadata   Json?
-  is_active  Boolean  @default(true)
-  created_at DateTime @default(now())
-  list       RecipientList @relation(fields: [list_id], references: [id], onDelete: Cascade)
-  
+  is_active  Boolean       @default(true)
+  created_at DateTime      @default(now())
+  list       RecipientList @relation(fields: [list_id], references: [id], onDelete: Cascade, map: "Recipient_list_id_fkey")
+
   @@map("recipients")
 }
 
 model EmailCampaign {
-  id               String   @id @default(uuid())
-  user_id          String
-  name             String
-  subject          String
-  content          String
-  template_id      String?
+  id                String         @id @default(uuid())
+  user_id           String
+  name              String
+  subject           String
+  content           String
+  template_id       String?
   recipient_list_id String?
-  status           String   @default("draft")
-  scheduled_at     DateTime?
-  sent_at          DateTime?
-  created_at       DateTime @default(now())
-  updated_at       DateTime @updatedAt
-  user             User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  template         EmailTemplate? @relation(fields: [template_id], references: [id], name: "TemplateToCampaign")
-  recipient_list   RecipientList? @relation(fields: [recipient_list_id], references: [id], name: "RecipientListToCampaign")
-  email_sends      EmailSend[]
-  
+  status            String         @default("draft")
+  scheduled_at      DateTime?
+  sent_at           DateTime?
+  created_at        DateTime       @default(now())
+  updated_at        DateTime       @updatedAt
+  recipient_list    RecipientList? @relation("RecipientListToCampaign", fields: [recipient_list_id], references: [id], map: "EmailCampaign_recipient_list_id_fkey")
+  template          EmailTemplate? @relation("TemplateToCampaign", fields: [template_id], references: [id], map: "EmailCampaign_template_id_fkey")
+  user              User           @relation(fields: [user_id], references: [id], onDelete: Cascade, map: "EmailCampaign_user_id_fkey")
+  email_sends       EmailSend[]
+
   @@map("email_campaigns")
 }
 
 model EmailSend {
-  id               String   @id @default(uuid())
-  campaign_id      String?
-  recipient_email  String
-  subject          String
-  content          String
-  status           String   @default("pending")
-  message_id       String?
-  sent_at          DateTime?
-  delivered_at     DateTime?
-  opened_at        DateTime?
-  clicked_at       DateTime?
-  bounced_at       DateTime?
-  complained_at    DateTime?
-  bounce_reason    String?
-  complaint_reason String?
-  tracking_pixel_id String?
-  created_at       DateTime @default(now())
-  campaign         EmailCampaign? @relation(fields: [campaign_id], references: [id], onDelete: Cascade)
-  tracking_events  EmailTrackingEvent[]
-  
+  id                      String                 @id(map: "EmailSend_pkey") @default(uuid())
+  campaign_id             String
+  recipient_email         String
+  subject                 String
+  content                 String
+  status                  String                 @default("pending")
+  message_id              String?
+  sent_at                 DateTime?
+  delivered_at            DateTime?
+  opened_at               DateTime?
+  clicked_at              DateTime?
+  bounced_at              DateTime?
+  complained_at           DateTime?
+  bounce_reason           String?
+  complaint_reason        String?
+  tracking_pixel_id       String?
+  created_at              DateTime               @default(now())
+  bounce_complaint_events BounceComplaintEvent[]
+  campaign                EmailCampaign          @relation(fields: [campaign_id], references: [id], onDelete: Cascade, map: "EmailSend_campaign_id_fkey")
+  tracking_events         EmailTrackingEvent[]
+
   @@map("email_sends")
 }
 
 model EmailTrackingEvent {
-  id            String   @id @default(uuid())
+  id            String    @id(map: "EmailTrackingEvent_pkey") @default(uuid())
   email_send_id String
   event_type    String
   event_data    Json?
-  timestamp     DateTime @default(now())
-  email_send    EmailSend @relation(fields: [email_send_id], references: [id], onDelete: Cascade)
-  
+  timestamp     DateTime  @default(now())
+  email_send    EmailSend @relation(fields: [email_send_id], references: [id], onDelete: Cascade, map: "EmailTrackingEvent_email_send_id_fkey")
+
   @@map("email_tracking_events")
 }
 
 model Session {
-  sid     String   @id
-  sess    Json
-  expire  DateTime
-  @@index([expire], name: "IDX_session_expire")
-  
+  sid    String   @id(map: "Session_pkey")
+  sess   Json
+  expire DateTime
+
+  @@index([expire], map: "IDX_session_expire")
   @@map("sessions")
+}
+
+model Domain {
+  id                 String      @id @default(dbgenerated("gen_random_uuid()")) @db.VarChar
+  user_id            String      @db.VarChar
+  domain             String      @unique @db.VarChar
+  status             String      @default("pending") @db.VarChar
+  verification_token String?
+  created_at         DateTime?   @default(now()) @db.Timestamp(6)
+  updated_at         DateTime?   @default(now()) @updatedAt @db.Timestamp(6)
+  dns_records        DnsRecord[]
+  user               User        @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("domains")
+}
+
+model DnsRecord {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.VarChar
+  domain_id    String    @db.VarChar
+  record_type  String    @db.VarChar
+  record_name  String
+  record_value String
+  purpose      String    @db.VarChar
+  created_at   DateTime? @default(now()) @db.Timestamp(6)
+  domain       Domain    @relation(fields: [domain_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("dns_records")
+}
+
+model BounceComplaintEvent {
+  id              String     @id @default(dbgenerated("gen_random_uuid()")) @db.VarChar
+  email_send_id   String?    @db.VarChar
+  event_type      String     @db.VarChar
+  bounce_type     String?    @db.VarChar
+  recipient_email String     @db.VarChar
+  domain          String?    @db.VarChar
+  reason          String?
+  diagnostic_code String?
+  timestamp       DateTime?  @default(now()) @db.Timestamp(6)
+  raw_data        Json?
+  email_send      EmailSend? @relation(fields: [email_send_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("bounce_complaint_events")
 }

@@ -362,6 +362,51 @@ export class AWSService {
       sentLast24Hours: response.SentLast24Hours || 0
     };
   }
+
+  // Helper method to generate DKIM CNAME records from tokens
+  generateDkimRecords(domain: string, dkimTokens: string[]): Array<{
+    recordType: 'CNAME';
+    recordName: string;
+    recordValue: string;
+    purpose: 'dkim';
+  }> {
+    return dkimTokens.map(token => ({
+      recordType: 'CNAME' as const,
+      recordName: `${token}._domainkey.${domain}`,
+      recordValue: `${token}.dkim.amazonses.com`,
+      purpose: 'dkim' as const,
+    }));
+  }
+
+  // Helper method to generate DMARC TXT record
+  generateDmarcRecord(domain: string): {
+    recordType: 'TXT';
+    recordName: string;
+    recordValue: string;
+    purpose: 'dmarc';
+  } {
+    return {
+      recordType: 'TXT' as const,
+      recordName: `_dmarc.${domain}`,
+      recordValue: 'v=DMARC1; p=none;',
+      purpose: 'dmarc' as const,
+    };
+  }
+
+  // Helper method to generate verification TXT record
+  generateVerificationRecord(domain: string, verificationToken: string): {
+    recordType: 'TXT';
+    recordName: string;
+    recordValue: string;
+    purpose: 'verification';
+  } {
+    return {
+      recordType: 'TXT' as const,
+      recordName: `_amazonses.${domain}`,
+      recordValue: verificationToken,
+      purpose: 'verification' as const,
+    };
+  }
 }
 
 export const awsService = new AWSService();

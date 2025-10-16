@@ -1,4 +1,4 @@
-import type { Express, Request, Response } from "express";
+import express, { type Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth } from "./auth";
@@ -190,14 +190,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Domain is required" });
       }
 
+      // Check if domain already exists
+      const existingDomain = await storage.getDomainByName(domain, userId);
+      if (existingDomain) {
+        return res.status(400).json({ message: "Domain already exists" });
+      }
+
       await awsService.initialize(userId);
       const result = await awsService.verifyDomainIdentity(domain);
       
+      // Save domain to database
+      const savedDomain = await storage.createDomain({
+        userId,
+        domain,
+        status: 'pending',
+        verificationToken: result.verificationToken,
+      });
+
+      // Generate DNS records
+      const dkimRecords = awsService.generateDkimRecords(domain, result.dkimTokens);
+      const dmarcRecord = awsService.generateDmarcRecord(domain);
+      const verificationRecord = awsService.generateVerificationRecord(domain, result.verificationToken);
+
+      // Save DNS records to database
+      const allRecords = [
+        verificationRecord,
+        dmarcRecord,
+        ...dkimRecords,
+      ];
+
+      const dnsRecords = await storage.createDnsRecords(
+        allRecords.map(record => ({
+          domainId: savedDomain.id,
+          recordType: record.recordType,
+          recordName: record.recordName,
+          recordValue: record.recordValue,
+          purpose: record.purpose,
+        }))
+      );
+      
       res.json({ 
         success: true, 
-        domain,
-        verificationToken: result.verificationToken,
-        dkimTokens: result.dkimTokens
+        domain: savedDomain,
+        dnsRecords,
       });
     } catch (error) {
       console.error("Error verifying domain:", error);
@@ -665,10 +700,126 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // SNS webhook endpoint for SES notifications (public)
-  app.post('/api/sns/notifications', async (req: Request, res: Response) => {
+  // Get DNS records for a domain
+  app.get('/api/domains/:domainId/dns-records', isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
-      const notification = req.body;
+      const userId = req.user!.id;
+      const { domainId } = req.params;
+
+      // Verify user owns this domain
+      const domain = await storage.getDomain(domainId, userId);
+      if (!domain) {
+        return res.status(404).json({ message: "Domain not found" });
+      }
+
+      const dnsRecords = await storage.getDnsRecords(domainId);
+      res.json({ dnsRecords });
+    } catch (error) {
+      console.error("Error fetching DNS records:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to fetch DNS records";
+      res.status(500).json({ message: errorMessage, dnsRecords: [] });
+    }
+  });
+
+  // Get bounce and complaint stats
+  app.get('/api/bounce-complaint-stats', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.id;
+      const { domain } = req.query;
+
+      const stats = await storage.getBounceComplaintStats(userId, domain as string | undefined);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching bounce/complaint stats:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to fetch stats";
+      res.status(500).json({ message: errorMessage });
+    }
+  });
+
+  // Get bounce and complaint events for a domain
+  app.get('/api/domains/:domain/bounce-complaint-events', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.id;
+      const { domain } = req.params;
+      const limit = parseInt(req.query.limit as string) || 100;
+
+      const events = await storage.getBounceComplaintEventsByDomain(userId, domain, limit);
+      res.json({ events });
+    } catch (error) {
+      console.error("Error fetching bounce/complaint events:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to fetch events";
+      res.status(500).json({ message: errorMessage, events: [] });
+    }
+  });
+
+  // Get all domains for a user with DNS records
+  app.get('/api/domains', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.id;
+      const domains = await storage.getDomains(userId);
+      
+      // Fetch DNS records for each domain
+      const domainsWithRecords = await Promise.all(
+        domains.map(async (domain) => {
+          const dnsRecords = await storage.getDnsRecords(domain.id);
+          return { ...domain, dnsRecords };
+        })
+      );
+      
+      res.json({ domains: domainsWithRecords });
+    } catch (error) {
+      console.error("Error fetching domains:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to fetch domains";
+      res.status(500).json({ message: errorMessage, domains: [] });
+    }
+  });
+
+  // Get bounce/complaint stats for a specific domain by ID
+  app.get('/api/domains/:domainId/bounce-complaint-stats', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.id;
+      const { domainId } = req.params;
+
+      // Verify user owns this domain
+      const domain = await storage.getDomain(domainId, userId);
+      if (!domain) {
+        return res.status(404).json({ message: "Domain not found" });
+      }
+
+      // Get stats using the domain name
+      const stats = await storage.getBounceComplaintStats(userId, domain.domain);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching bounce/complaint stats:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to fetch stats";
+      res.status(500).json({ message: errorMessage });
+    }
+  });
+
+  // SNS webhook endpoint for SES notifications (public)
+  // AWS SNS sends text/plain content, so we need to parse it manually
+  app.post('/api/sns/notifications', express.text({ type: '*/*' }), async (req: Request, res: Response) => {
+    try {
+      // Parse the SNS message body (AWS sends it as text/plain)
+      const notification = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+      
+      // Handle subscription confirmation (required for SNS to work)
+      if (notification.Type === 'SubscriptionConfirmation') {
+        const subscribeURL = notification.SubscribeURL;
+        if (subscribeURL) {
+          // Confirm the subscription
+          const https = await import('https');
+          https.get(subscribeURL, (response) => {
+            console.log('SNS subscription confirmed successfully');
+          });
+        }
+        return res.status(200).send('Subscription confirmed');
+      }
+      
+      // Handle unsubscribe confirmation (optional)
+      if (notification.Type === 'UnsubscribeConfirmation') {
+        return res.status(200).send('Unsubscribe confirmed');
+      }
       
       // Handle SES bounce, complaint, and delivery notifications
       if (notification.Type === 'Notification') {
@@ -690,6 +841,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
               eventType: 'bounce',
               eventData: message.bounce,
             });
+
+            // Save to bounce_complaint_events table
+            const bounceType = message.bounce.bounceType?.toLowerCase(); // hard, soft, transient
+            const recipient = message.bounce.bouncedRecipients?.[0];
+            if (recipient) {
+              const recipientEmail = recipient.emailAddress;
+              const domain = recipientEmail.split('@')[1];
+              
+              await storage.createBounceComplaintEvent({
+                emailSendId: emailSend.id,
+                eventType: 'bounce',
+                bounceType,
+                recipientEmail,
+                domain,
+                reason: recipient.status || recipient.diagnosticCode,
+                diagnosticCode: recipient.diagnosticCode,
+                rawData: message.bounce,
+              });
+            }
           }
         } else if (message.notificationType === 'Complaint') {
           const messageId = message.mail.commonHeaders.messageId;
@@ -707,6 +877,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
               eventType: 'complaint',
               eventData: message.complaint,
             });
+
+            // Save to bounce_complaint_events table
+            const complainedRecipient = message.complaint.complainedRecipients?.[0];
+            if (complainedRecipient) {
+              const recipientEmail = complainedRecipient.emailAddress;
+              const domain = recipientEmail.split('@')[1];
+              
+              await storage.createBounceComplaintEvent({
+                emailSendId: emailSend.id,
+                eventType: 'complaint',
+                bounceType: null,
+                recipientEmail,
+                domain,
+                reason: message.complaint.complaintFeedbackType,
+                diagnosticCode: null,
+                rawData: message.complaint,
+              });
+            }
           }
         } else if (message.notificationType === 'Delivery') {
           const messageId = message.mail.commonHeaders.messageId;

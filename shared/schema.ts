@@ -126,12 +126,49 @@ export const emailTrackingEvents = pgTable("email_tracking_events", {
   timestamp: timestamp("timestamp").defaultNow(),
 });
 
+// Domains - store verified domains
+export const domains = pgTable("domains", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  domain: varchar("domain").notNull().unique(),
+  status: varchar("status").notNull().default('pending'), // pending, verified, failed
+  verificationToken: text("verification_token"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// DNS Records - store DKIM and DMARC records for domains
+export const dnsRecords = pgTable("dns_records", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  domainId: varchar("domain_id").references(() => domains.id, { onDelete: 'cascade' }).notNull(),
+  recordType: varchar("record_type").notNull(), // CNAME, TXT
+  recordName: text("record_name").notNull(), // e.g., token._domainkey.example.com
+  recordValue: text("record_value").notNull(), // e.g., token.dkim.amazonses.com
+  purpose: varchar("purpose").notNull(), // dkim, dmarc, verification
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Bounce and Complaint Events - track deliverability issues
+export const bounceComplaintEvents = pgTable("bounce_complaint_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  emailSendId: varchar("email_send_id").references(() => emailSends.id, { onDelete: 'cascade' }),
+  eventType: varchar("event_type").notNull(), // bounce, complaint
+  bounceType: varchar("bounce_type"), // hard, soft, transient (for bounces)
+  recipientEmail: varchar("recipient_email").notNull(),
+  domain: varchar("domain"),
+  reason: text("reason"),
+  diagnosticCode: text("diagnostic_code"),
+  timestamp: timestamp("timestamp").defaultNow(),
+  rawData: jsonb("raw_data"), // store full SNS notification
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   awsCredentials: many(awsCredentials),
   emailTemplates: many(emailTemplates),
   recipientLists: many(recipientLists),
   emailCampaigns: many(emailCampaigns),
+  domains: many(domains),
 }));
 
 export const awsCredentialsRelations = relations(awsCredentials, ({ one }) => ({
@@ -196,6 +233,28 @@ export const emailTrackingEventsRelations = relations(emailTrackingEvents, ({ on
   }),
 }));
 
+export const domainsRelations = relations(domains, ({ one, many }) => ({
+  user: one(users, {
+    fields: [domains.userId],
+    references: [users.id],
+  }),
+  dnsRecords: many(dnsRecords),
+}));
+
+export const dnsRecordsRelations = relations(dnsRecords, ({ one }) => ({
+  domain: one(domains, {
+    fields: [dnsRecords.domainId],
+    references: [domains.id],
+  }),
+}));
+
+export const bounceComplaintEventsRelations = relations(bounceComplaintEvents, ({ one }) => ({
+  emailSend: one(emailSends, {
+    fields: [bounceComplaintEvents.emailSendId],
+    references: [emailSends.id],
+  }),
+}));
+
 // Export types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -220,6 +279,15 @@ export type EmailSend = typeof emailSends.$inferSelect;
 
 export type InsertEmailTrackingEvent = typeof emailTrackingEvents.$inferInsert;
 export type EmailTrackingEvent = typeof emailTrackingEvents.$inferSelect;
+
+export type InsertDomain = typeof domains.$inferInsert;
+export type Domain = typeof domains.$inferSelect;
+
+export type InsertDnsRecord = typeof dnsRecords.$inferInsert;
+export type DnsRecord = typeof dnsRecords.$inferSelect;
+
+export type InsertBounceComplaintEvent = typeof bounceComplaintEvents.$inferInsert;
+export type BounceComplaintEvent = typeof bounceComplaintEvents.$inferSelect;
 
 // Zod schemas
 export const insertUserSchema = createInsertSchema(users).omit({
@@ -264,4 +332,21 @@ export const insertEmailCampaignSchema = createInsertSchema(emailCampaigns).omit
 export const insertEmailSendSchema = createInsertSchema(emailSends).omit({
   id: true,
   createdAt: true,
+});
+
+export const insertDomainSchema = createInsertSchema(domains).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertDnsRecordSchema = createInsertSchema(dnsRecords).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertBounceComplaintEventSchema = createInsertSchema(bounceComplaintEvents).omit({
+  id: true,
+  timestamp: true,
 });

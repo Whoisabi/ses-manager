@@ -7,6 +7,9 @@ import {
   emailCampaigns,
   emailSends,
   emailTrackingEvents,
+  domains,
+  dnsRecords,
+  bounceComplaintEvents,
   type User,
   type UpsertUser,
   type AwsCredentials,
@@ -23,6 +26,12 @@ import {
   type InsertEmailSend,
   type EmailTrackingEvent,
   type InsertEmailTrackingEvent,
+  type Domain,
+  type InsertDomain,
+  type DnsRecord,
+  type InsertDnsRecord,
+  type BounceComplaintEvent,
+  type InsertBounceComplaintEvent,
   insertUserSchema,
 } from "@shared/schema";
 import { prisma } from "./db";
@@ -102,6 +111,32 @@ export interface IStorage {
     bounced: number;
     complained: number;
   }>>;
+
+  // Domain operations
+  getDomains(userId: string): Promise<Domain[]>;
+  getDomain(id: string, userId: string): Promise<Domain | undefined>;
+  getDomainByName(domain: string, userId: string): Promise<Domain | undefined>;
+  createDomain(domain: InsertDomain & { userId: string }): Promise<Domain>;
+  updateDomain(id: string, userId: string, domain: Partial<InsertDomain>): Promise<Domain>;
+  deleteDomain(id: string, userId: string): Promise<void>;
+
+  // DNS Records operations
+  getDnsRecords(domainId: string): Promise<DnsRecord[]>;
+  createDnsRecord(record: InsertDnsRecord): Promise<DnsRecord>;
+  createDnsRecords(records: InsertDnsRecord[]): Promise<DnsRecord[]>;
+  deleteDnsRecordsByDomain(domainId: string): Promise<void>;
+
+  // Bounce and Complaint operations
+  createBounceComplaintEvent(event: InsertBounceComplaintEvent): Promise<BounceComplaintEvent>;
+  getBounceComplaintStats(userId: string, domain?: string): Promise<{
+    totalBounces: number;
+    hardBounces: number;
+    softBounces: number;
+    totalComplaints: number;
+    bounceRate: number;
+    complaintRate: number;
+  }>;
+  getBounceComplaintEventsByDomain(userId: string, domain: string, limit?: number): Promise<BounceComplaintEvent[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -877,6 +912,287 @@ export class DatabaseStorage implements IStorage {
     return Object.entries(dataByDate)
       .map(([date, data]) => ({ date, ...data }))
       .sort((a, b) => a.date.localeCompare(b.date));
+  }
+
+  // Domain operations
+
+  async getDomains(userId: string): Promise<Domain[]> {
+    const results = await prisma.domain.findMany({
+      where: { user_id: userId },
+      orderBy: { created_at: 'desc' },
+    });
+    return results.map(d => ({
+      id: d.id,
+      userId: d.user_id,
+      domain: d.domain,
+      status: d.status,
+      verificationToken: d.verification_token,
+      createdAt: d.created_at,
+      updatedAt: d.updated_at,
+    }));
+  }
+
+  async getDomain(id: string, userId: string): Promise<Domain | undefined> {
+    const d = await prisma.domain.findFirst({ where: { id, user_id: userId } });
+    if (!d) return undefined;
+    return {
+      id: d.id,
+      userId: d.user_id,
+      domain: d.domain,
+      status: d.status,
+      verificationToken: d.verification_token,
+      createdAt: d.created_at,
+      updatedAt: d.updated_at,
+    };
+  }
+
+  async getDomainByName(domain: string, userId: string): Promise<Domain | undefined> {
+    const d = await prisma.domain.findFirst({ where: { domain, user_id: userId } });
+    if (!d) return undefined;
+    return {
+      id: d.id,
+      userId: d.user_id,
+      domain: d.domain,
+      status: d.status,
+      verificationToken: d.verification_token,
+      createdAt: d.created_at,
+      updatedAt: d.updated_at,
+    };
+  }
+
+  async createDomain(domainData: InsertDomain & { userId: string }): Promise<Domain> {
+    const d = await prisma.domain.create({
+      data: {
+        user_id: domainData.userId,
+        domain: domainData.domain,
+        status: domainData.status || 'pending',
+        verification_token: domainData.verificationToken,
+      },
+    });
+    return {
+      id: d.id,
+      userId: d.user_id,
+      domain: d.domain,
+      status: d.status,
+      verificationToken: d.verification_token,
+      createdAt: d.created_at,
+      updatedAt: d.updated_at,
+    };
+  }
+
+  async updateDomain(id: string, userId: string, domainData: Partial<InsertDomain>): Promise<Domain> {
+    const d = await prisma.domain.update({
+      where: { id, user_id: userId },
+      data: {
+        status: domainData.status,
+        verification_token: domainData.verificationToken,
+      },
+    });
+    return {
+      id: d.id,
+      userId: d.user_id,
+      domain: d.domain,
+      status: d.status,
+      verificationToken: d.verification_token,
+      createdAt: d.created_at,
+      updatedAt: d.updated_at,
+    };
+  }
+
+  async deleteDomain(id: string, userId: string): Promise<void> {
+    await prisma.domain.delete({
+      where: { id, user_id: userId },
+    });
+  }
+
+  // DNS Records operations
+
+  async getDnsRecords(domainId: string): Promise<DnsRecord[]> {
+    const results = await prisma.dnsRecord.findMany({
+      where: { domain_id: domainId },
+      orderBy: { created_at: 'asc' },
+    });
+    return results.map(r => ({
+      id: r.id,
+      domainId: r.domain_id,
+      recordType: r.record_type,
+      recordName: r.record_name,
+      recordValue: r.record_value,
+      purpose: r.purpose,
+      createdAt: r.created_at,
+    }));
+  }
+
+  async createDnsRecord(recordData: InsertDnsRecord): Promise<DnsRecord> {
+    const r = await prisma.dnsRecord.create({
+      data: {
+        domain_id: recordData.domainId,
+        record_type: recordData.recordType,
+        record_name: recordData.recordName,
+        record_value: recordData.recordValue,
+        purpose: recordData.purpose,
+      },
+    });
+    return {
+      id: r.id,
+      domainId: r.domain_id,
+      recordType: r.record_type,
+      recordName: r.record_name,
+      recordValue: r.record_value,
+      purpose: r.purpose,
+      createdAt: r.created_at,
+    };
+  }
+
+  async createDnsRecords(records: InsertDnsRecord[]): Promise<DnsRecord[]> {
+    const results = await prisma.dnsRecord.createMany({
+      data: records.map(r => ({
+        domain_id: r.domainId,
+        record_type: r.recordType,
+        record_name: r.recordName,
+        record_value: r.recordValue,
+        purpose: r.purpose,
+      })),
+    });
+    // Fetch the created records
+    const created = await prisma.dnsRecord.findMany({
+      where: {
+        domain_id: { in: records.map(r => r.domainId) },
+      },
+      orderBy: { created_at: 'desc' },
+      take: records.length,
+    });
+    return created.map(r => ({
+      id: r.id,
+      domainId: r.domain_id,
+      recordType: r.record_type,
+      recordName: r.record_name,
+      recordValue: r.record_value,
+      purpose: r.purpose,
+      createdAt: r.created_at,
+    }));
+  }
+
+  async deleteDnsRecordsByDomain(domainId: string): Promise<void> {
+    await prisma.dnsRecord.deleteMany({
+      where: { domain_id: domainId },
+    });
+  }
+
+  // Bounce and Complaint operations
+
+  async createBounceComplaintEvent(eventData: InsertBounceComplaintEvent): Promise<BounceComplaintEvent> {
+    const e = await prisma.bounceComplaintEvent.create({
+      data: {
+        email_send_id: eventData.emailSendId,
+        event_type: eventData.eventType,
+        bounce_type: eventData.bounceType,
+        recipient_email: eventData.recipientEmail,
+        domain: eventData.domain,
+        reason: eventData.reason,
+        diagnostic_code: eventData.diagnosticCode,
+        raw_data: eventData.rawData as any,
+      },
+    });
+    return {
+      id: e.id,
+      emailSendId: e.email_send_id,
+      eventType: e.event_type,
+      bounceType: e.bounce_type,
+      recipientEmail: e.recipient_email,
+      domain: e.domain,
+      reason: e.reason,
+      diagnosticCode: e.diagnostic_code,
+      timestamp: e.timestamp,
+      rawData: e.raw_data as any,
+    };
+  }
+
+  async getBounceComplaintStats(userId: string, domain?: string): Promise<{
+    totalBounces: number;
+    hardBounces: number;
+    softBounces: number;
+    totalComplaints: number;
+    bounceRate: number;
+    complaintRate: number;
+  }> {
+    const whereClause: any = {
+      email_send: {
+        campaign: {
+          user_id: userId,
+        },
+      },
+    };
+
+    if (domain) {
+      whereClause.domain = domain;
+    }
+
+    const totalBounces = await prisma.bounceComplaintEvent.count({
+      where: { ...whereClause, event_type: 'bounce' },
+    });
+
+    const hardBounces = await prisma.bounceComplaintEvent.count({
+      where: { ...whereClause, event_type: 'bounce', bounce_type: 'hard' },
+    });
+
+    const softBounces = await prisma.bounceComplaintEvent.count({
+      where: { ...whereClause, event_type: 'bounce', bounce_type: 'soft' },
+    });
+
+    const totalComplaints = await prisma.bounceComplaintEvent.count({
+      where: { ...whereClause, event_type: 'complaint' },
+    });
+
+    // Calculate total sent emails for rate calculation
+    const totalSentWhere: any = {
+      campaign: { user_id: userId },
+    };
+    if (domain) {
+      const domainSuffix = `@${domain}`;
+      totalSentWhere.recipient_email = { endsWith: domainSuffix };
+    }
+    const totalSent = await prisma.emailSend.count({ where: totalSentWhere });
+
+    const bounceRate = totalSent > 0 ? (totalBounces / totalSent) * 100 : 0;
+    const complaintRate = totalSent > 0 ? (totalComplaints / totalSent) * 100 : 0;
+
+    return {
+      totalBounces,
+      hardBounces,
+      softBounces,
+      totalComplaints,
+      bounceRate,
+      complaintRate,
+    };
+  }
+
+  async getBounceComplaintEventsByDomain(userId: string, domain: string, limit: number = 100): Promise<BounceComplaintEvent[]> {
+    const results = await prisma.bounceComplaintEvent.findMany({
+      where: {
+        domain,
+        email_send: {
+          campaign: {
+            user_id: userId,
+          },
+        },
+      },
+      orderBy: { timestamp: 'desc' },
+      take: limit,
+    });
+
+    return results.map(e => ({
+      id: e.id,
+      emailSendId: e.email_send_id,
+      eventType: e.event_type,
+      bounceType: e.bounce_type,
+      recipientEmail: e.recipient_email,
+      domain: e.domain,
+      reason: e.reason,
+      diagnosticCode: e.diagnostic_code,
+      timestamp: e.timestamp,
+      rawData: e.raw_data as any,
+    }));
   }
 }
 
