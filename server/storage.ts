@@ -21,6 +21,8 @@ import {
   type InsertDnsRecord,
   type BounceComplaintEvent,
   type InsertBounceComplaintEvent,
+  type TrackingConfig,
+  type InsertTrackingConfig,
   insertUserSchema,
 } from "@shared/types";
 import { prisma } from "./db";
@@ -126,6 +128,11 @@ export interface IStorage {
     complaintRate: number;
   }>;
   getBounceComplaintEventsByDomain(userId: string, domain: string, limit?: number): Promise<BounceComplaintEvent[]>;
+
+  // Tracking Configuration operations
+  getTrackingConfig(userId: string): Promise<TrackingConfig | undefined>;
+  upsertTrackingConfig(config: InsertTrackingConfig): Promise<TrackingConfig>;
+  deleteTrackingConfig(userId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1208,6 +1215,78 @@ export class DatabaseStorage implements IStorage {
       timestamp: e.timestamp,
       rawData: e.raw_data as any,
     }));
+  }
+
+  async getTrackingConfig(userId: string): Promise<TrackingConfig | undefined> {
+    const config = await prisma.trackingConfig.findUnique({
+      where: { user_id: userId },
+    });
+
+    if (!config) return undefined;
+
+    return {
+      id: config.id,
+      userId: config.user_id,
+      isEnabled: config.is_enabled,
+      bounceTopicArn: config.bounce_topic_arn,
+      complaintTopicArn: config.complaint_topic_arn,
+      deliveryTopicArn: config.delivery_topic_arn,
+      bounceSubscriptionArn: config.bounce_subscription_arn,
+      complaintSubscriptionArn: config.complaint_subscription_arn,
+      deliverySubscriptionArn: config.delivery_subscription_arn,
+      webhookUrl: config.webhook_url,
+      createdAt: config.created_at,
+      updatedAt: config.updated_at,
+    };
+  }
+
+  async upsertTrackingConfig(config: InsertTrackingConfig): Promise<TrackingConfig> {
+    const result = await prisma.trackingConfig.upsert({
+      where: { user_id: config.userId },
+      update: {
+        is_enabled: config.isEnabled ?? undefined,
+        bounce_topic_arn: config.bounceTopicArn ?? undefined,
+        complaint_topic_arn: config.complaintTopicArn ?? undefined,
+        delivery_topic_arn: config.deliveryTopicArn ?? undefined,
+        bounce_subscription_arn: config.bounceSubscriptionArn ?? undefined,
+        complaint_subscription_arn: config.complaintSubscriptionArn ?? undefined,
+        delivery_subscription_arn: config.deliverySubscriptionArn ?? undefined,
+        webhook_url: config.webhookUrl ?? undefined,
+        updated_at: new Date(),
+      },
+      create: {
+        user_id: config.userId,
+        is_enabled: config.isEnabled ?? false,
+        bounce_topic_arn: config.bounceTopicArn,
+        complaint_topic_arn: config.complaintTopicArn,
+        delivery_topic_arn: config.deliveryTopicArn,
+        bounce_subscription_arn: config.bounceSubscriptionArn,
+        complaint_subscription_arn: config.complaintSubscriptionArn,
+        delivery_subscription_arn: config.deliverySubscriptionArn,
+        webhook_url: config.webhookUrl,
+      },
+    });
+
+    return {
+      id: result.id,
+      userId: result.user_id,
+      isEnabled: result.is_enabled,
+      bounceTopicArn: result.bounce_topic_arn,
+      complaintTopicArn: result.complaint_topic_arn,
+      deliveryTopicArn: result.delivery_topic_arn,
+      bounceSubscriptionArn: result.bounce_subscription_arn,
+      complaintSubscriptionArn: result.complaint_subscription_arn,
+      deliverySubscriptionArn: result.delivery_subscription_arn,
+      webhookUrl: result.webhook_url,
+      createdAt: result.created_at,
+      updatedAt: result.updated_at,
+    };
+  }
+
+  async deleteTrackingConfig(userId: string): Promise<void> {
+    await prisma.trackingConfig.delete({
+      where: { user_id: userId },
+    });
   }
 }
 

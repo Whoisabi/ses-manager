@@ -162,13 +162,30 @@ export const bounceComplaintEvents = pgTable("bounce_complaint_events", {
   rawData: jsonb("raw_data"), // store full SNS notification
 });
 
+// Tracking Configuration - store SNS topics and tracking status
+export const trackingConfig = pgTable("tracking_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull().unique(),
+  isEnabled: boolean("is_enabled").default(false).notNull(),
+  bounceTopicArn: text("bounce_topic_arn"),
+  complaintTopicArn: text("complaint_topic_arn"),
+  deliveryTopicArn: text("delivery_topic_arn"),
+  bounceSubscriptionArn: text("bounce_subscription_arn"),
+  complaintSubscriptionArn: text("complaint_subscription_arn"),
+  deliverySubscriptionArn: text("delivery_subscription_arn"),
+  webhookUrl: text("webhook_url"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Relations
-export const usersRelations = relations(users, ({ many }) => ({
+export const usersRelations = relations(users, ({ many, one }) => ({
   awsCredentials: many(awsCredentials),
   emailTemplates: many(emailTemplates),
   recipientLists: many(recipientLists),
   emailCampaigns: many(emailCampaigns),
   domains: many(domains),
+  trackingConfig: one(trackingConfig),
 }));
 
 export const awsCredentialsRelations = relations(awsCredentials, ({ one }) => ({
@@ -252,6 +269,13 @@ export const bounceComplaintEventsRelations = relations(bounceComplaintEvents, (
   emailSend: one(emailSends, {
     fields: [bounceComplaintEvents.emailSendId],
     references: [emailSends.id],
+  }),
+}));
+
+export const trackingConfigRelations = relations(trackingConfig, ({ one }) => ({
+  user: one(users, {
+    fields: [trackingConfig.userId],
+    references: [users.id],
   }),
 }));
 
@@ -350,3 +374,6 @@ export const insertBounceComplaintEventSchema = createInsertSchema(bounceComplai
   id: true,
   timestamp: true,
 });
+
+export type InsertTrackingConfig = typeof trackingConfig.$inferInsert;
+export type TrackingConfig = typeof trackingConfig.$inferSelect;

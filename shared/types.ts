@@ -237,6 +237,33 @@ export type InsertBounceComplaintEvent = {
   rawData?: Prisma.JsonValue | null;
 };
 
+export type TrackingConfig = {
+  id: string;
+  userId: string;
+  isEnabled: boolean;
+  bounceTopicArn: string | null;
+  complaintTopicArn: string | null;
+  deliveryTopicArn: string | null;
+  bounceSubscriptionArn: string | null;
+  complaintSubscriptionArn: string | null;
+  deliverySubscriptionArn: string | null;
+  webhookUrl: string | null;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+};
+
+export type InsertTrackingConfig = {
+  userId: string;
+  isEnabled?: boolean;
+  bounceTopicArn?: string | null;
+  complaintTopicArn?: string | null;
+  deliveryTopicArn?: string | null;
+  bounceSubscriptionArn?: string | null;
+  complaintSubscriptionArn?: string | null;
+  deliverySubscriptionArn?: string | null;
+  webhookUrl?: string | null;
+};
+
 // Zod validation schemas
 export const insertUserSchema = z.object({
   email: z.string().email(),
@@ -325,4 +352,16 @@ export const insertBounceComplaintEventSchema = z.object({
   reason: z.string().optional().nullable(),
   diagnosticCode: z.string().optional().nullable(),
   rawData: z.any().optional().nullable(),
+});
+
+export const insertTrackingConfigSchema = z.object({
+  userId: z.string(),
+  isEnabled: z.boolean().optional(),
+  bounceTopicArn: z.string().optional().nullable(),
+  complaintTopicArn: z.string().optional().nullable(),
+  deliveryTopicArn: z.string().optional().nullable(),
+  bounceSubscriptionArn: z.string().optional().nullable(),
+  complaintSubscriptionArn: z.string().optional().nullable(),
+  deliverySubscriptionArn: z.string().optional().nullable(),
+  webhookUrl: z.string().optional().nullable(),
 });

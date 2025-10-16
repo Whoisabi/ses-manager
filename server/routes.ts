@@ -9,8 +9,11 @@ import {
   insertAwsCredentialsSchema,
   insertEmailTemplateSchema,
   insertRecipientListSchema,
-  insertEmailCampaignSchema 
+  insertEmailCampaignSchema,
+  type TrackingConfig,
+  type InsertTrackingConfig
 } from "@shared/types";
+import { snsService } from "./services/snsService";
 import { z } from "zod";
 import multer from 'multer';
 import csvParser from 'csv-parser';
@@ -827,6 +830,140 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching bounce/complaint stats:", error);
       const errorMessage = error instanceof Error ? error.message : "Failed to fetch stats";
+      res.status(500).json({ message: errorMessage });
+    }
+  });
+
+  // Tracking configuration routes
+  app.get('/api/tracking/config', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.id;
+      const config = await storage.getTrackingConfig(userId);
+      
+      if (!config) {
+        return res.json({ 
+          isEnabled: false,
+          config: null
+        });
+      }
+      
+      res.json({
+        isEnabled: config.isEnabled,
+        config: {
+          webhookUrl: config.webhookUrl,
+          bounceTopicArn: config.bounceTopicArn,
+          complaintTopicArn: config.complaintTopicArn,
+          deliveryTopicArn: config.deliveryTopicArn,
+        }
+      });
+    } catch (error) {
+      console.error("Error fetching tracking config:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to fetch tracking configuration";
+      res.status(500).json({ message: errorMessage });
+    }
+  });
+
+  app.post('/api/tracking/enable', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.id;
+
+      // Construct webhook URL
+      const webhookUrl = `${process.env.REPL_DOMAINS?.split(',')[0] || process.env.BASE_URL || 'http://localhost:5000'}/api/sns/notifications`;
+
+      // Initialize AWS services
+      await awsService.initialize(userId);
+      await snsService.initialize(userId);
+
+      // Get all verified SES identities
+      const identities = await awsService.getVerifiedIdentities();
+
+      if (identities.length === 0) {
+        return res.status(400).json({ 
+          message: "No verified email identities found. Please verify at least one email address or domain first." 
+        });
+      }
+
+      // Setup SNS tracking
+      const trackingSetup = await snsService.setupTracking(userId, webhookUrl, identities);
+
+      // Store configuration in database
+      const config = await storage.upsertTrackingConfig({
+        userId,
+        isEnabled: true,
+        bounceTopicArn: trackingSetup.bounceTopicArn,
+        complaintTopicArn: trackingSetup.complaintTopicArn,
+        deliveryTopicArn: trackingSetup.deliveryTopicArn,
+        bounceSubscriptionArn: trackingSetup.bounceSubscriptionArn,
+        complaintSubscriptionArn: trackingSetup.complaintSubscriptionArn,
+        deliverySubscriptionArn: trackingSetup.deliverySubscriptionArn,
+        webhookUrl,
+      });
+
+      res.json({
+        success: true,
+        webhookUrl,
+        config: {
+          isEnabled: config.isEnabled,
+          bounceTopicArn: config.bounceTopicArn,
+          complaintTopicArn: config.complaintTopicArn,
+          deliveryTopicArn: config.deliveryTopicArn,
+        }
+      });
+    } catch (error) {
+      console.error("Error enabling tracking:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to enable tracking";
+      res.status(500).json({ message: errorMessage });
+    }
+  });
+
+  app.post('/api/tracking/disable', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.id;
+
+      // Get tracking config from database
+      const config = await storage.getTrackingConfig(userId);
+      
+      if (!config) {
+        return res.status(404).json({ message: "No tracking configuration found" });
+      }
+
+      // Initialize AWS services
+      await awsService.initialize(userId);
+      await snsService.initialize(userId);
+
+      // Get all verified identities
+      const identities = await awsService.getVerifiedIdentities();
+
+      // Cleanup SNS resources
+      await snsService.cleanupTracking({
+        bounceTopicArn: config.bounceTopicArn || undefined,
+        complaintTopicArn: config.complaintTopicArn || undefined,
+        deliveryTopicArn: config.deliveryTopicArn || undefined,
+        bounceSubscriptionArn: config.bounceSubscriptionArn || undefined,
+        complaintSubscriptionArn: config.complaintSubscriptionArn || undefined,
+        deliverySubscriptionArn: config.deliverySubscriptionArn || undefined,
+      }, identities);
+
+      // Update configuration to disabled
+      await storage.upsertTrackingConfig({
+        userId,
+        isEnabled: false,
+        bounceTopicArn: null,
+        complaintTopicArn: null,
+        deliveryTopicArn: null,
+        bounceSubscriptionArn: null,
+        complaintSubscriptionArn: null,
+        deliverySubscriptionArn: null,
+        webhookUrl: null,
+      });
+
+      res.json({
+        success: true,
+        message: "Tracking disabled successfully"
+      });
+    } catch (error) {
+      console.error("Error disabling tracking:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to disable tracking";
       res.status(500).json({ message: errorMessage });
     }
   });
