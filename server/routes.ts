@@ -738,6 +738,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Click tracking endpoint (public)
+  app.get('/api/tracking/click/:emailSendId', async (req: Request, res: Response) => {
+    try {
+      const emailSendId = req.params.emailSendId;
+      const targetUrl = req.query.url as string;
+
+      if (!targetUrl) {
+        return res.status(400).send('Missing target URL');
+      }
+
+      // Update email send record if not already clicked
+      const emailSend = await storage.getEmailSend(emailSendId);
+      if (emailSend && !emailSend.clickedAt) {
+        await storage.updateEmailSend(emailSend.id, { clickedAt: new Date() });
+        await storage.createTrackingEvent({
+          emailSendId: emailSend.id,
+          eventType: 'click',
+          eventData: {
+            url: targetUrl,
+            userAgent: req.get('User-Agent'),
+            ip: req.ip,
+          },
+        });
+      }
+
+      // Redirect to target URL
+      res.redirect(decodeURIComponent(targetUrl));
+    } catch (error) {
+      console.error("Error tracking click:", error);
+      res.status(500).send('Error');
+    }
+  });
+
   // Get DNS records for a domain
   app.get('/api/domains/:domainId/dns-records', isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {

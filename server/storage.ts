@@ -73,8 +73,9 @@ export interface IStorage {
   deleteEmailCampaign(id: string, userId: string): Promise<void>;
 
   // Email send operations
-  createEmailSend(emailSend: InsertEmailSend): Promise<EmailSend>;
+  createEmailSend(emailSend: InsertEmailSend, userId?: string): Promise<EmailSend>;
   updateEmailSend(id: string, updates: Partial<InsertEmailSend>): Promise<EmailSend>;
+  getEmailSend(id: string): Promise<EmailSend | undefined>;
   getEmailSends(userId: string, limit?: number): Promise<EmailSend[]>;
   getEmailSendsByCampaign(campaignId: string): Promise<EmailSend[]>;
 
@@ -774,6 +775,30 @@ export class DatabaseStorage implements IStorage {
       eventType: t.event_type,
       eventData: t.event_data,
       timestamp: t.timestamp,
+    };
+  }
+
+  async getEmailSend(id: string): Promise<EmailSend | undefined> {
+    const e = await prisma.emailSend.findUnique({ where: { id } });
+    if (!e) return undefined;
+    return {
+      id: e.id,
+      campaignId: e.campaign_id,
+      recipientEmail: e.recipient_email,
+      subject: e.subject,
+      content: e.content,
+      status: e.status,
+      messageId: e.message_id,
+      sentAt: e.sent_at,
+      deliveredAt: e.delivered_at,
+      openedAt: e.opened_at,
+      clickedAt: e.clicked_at,
+      bouncedAt: e.bounced_at,
+      complainedAt: e.complained_at,
+      bounceReason: e.bounce_reason,
+      complaintReason: e.complaint_reason,
+      trackingPixelId: e.tracking_pixel_id,
+      createdAt: e.created_at,
     };
   }
 

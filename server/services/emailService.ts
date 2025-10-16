@@ -20,12 +20,35 @@ export interface SendBulkEmailRequest {
 }
 
 export class EmailService {
+  private getBaseUrl(): string {
+    // Use REPL_DOMAINS for deployed Replit apps, fallback to BASE_URL or localhost
+    const replDomains = process.env.REPL_DOMAINS;
+    if (replDomains) {
+      const primaryDomain = replDomains.split(',')[0];
+      return `https://${primaryDomain}`;
+    }
+    return process.env.BASE_URL || 'http://localhost:5000';
+  }
+
+  private addClickTracking(content: string, emailSendId: string): string {
+    // Wrap all links with click tracking
+    const baseUrl = this.getBaseUrl();
+    return content.replace(
+      /<a\s+([^>]*?)href=["']([^"']+)["']([^>]*?)>/gi,
+      (match, before, url, after) => {
+        const trackingUrl = `${baseUrl}/api/tracking/click/${emailSendId}?url=${encodeURIComponent(url)}`;
+        return `<a ${before}href="${trackingUrl}"${after}>`;
+      }
+    );
+  }
+
   async sendSingleEmail(userId: string, request: SendSingleEmailRequest): Promise<string> {
     await awsService.initialize(userId);
 
     // Add tracking pixel to content
     const trackingPixelId = randomUUID();
-    const trackingPixel = `<img src="${process.env.BASE_URL || 'http://localhost:5000'}/api/tracking/pixel/${trackingPixelId}" width="1" height="1" style="display:none;" alt="" />`;
+    const baseUrl = this.getBaseUrl();
+    const trackingPixel = `<img src="${baseUrl}/api/tracking/pixel/${trackingPixelId}" width="1" height="1" style="display:none;" alt="" />`;
     const contentWithTracking = request.content + trackingPixel;
 
     try {
@@ -91,7 +114,8 @@ export class EmailService {
       if (!recipient.isActive) continue;
 
       const trackingPixelId = randomUUID();
-      const trackingPixel = `<img src="${process.env.BASE_URL || 'http://localhost:5000'}/api/tracking/pixel/${trackingPixelId}" width="1" height="1" style="display:none;" alt="" />`;
+      const baseUrl = this.getBaseUrl();
+      const trackingPixel = `<img src="${baseUrl}/api/tracking/pixel/${trackingPixelId}" width="1" height="1" style="display:none;" alt="" />`;
       
       // Replace template variables
       let personalizedContent = request.content;
