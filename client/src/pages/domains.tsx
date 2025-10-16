@@ -58,6 +58,16 @@ export default function Domains() {
       type: 'email' | 'domain';
       status: string;
       verificationToken?: string;
+      domainId?: string;
+      dnsRecords?: Array<{
+        id: string;
+        domainId: string;
+        recordType: string;
+        recordName: string;
+        recordValue: string;
+        purpose: string;
+        createdAt: Date;
+      }>;
     }>;
   }>({
     queryKey: ["/api/ses/identities"],
@@ -465,25 +475,25 @@ export default function Domains() {
                       </div>
 
                       {/* DKIM CNAME Records */}
-                      {domainDkimTokens[domain.identity] && domainDkimTokens[domain.identity].length > 0 && (
+                      {domain.dnsRecords && domain.dnsRecords.filter(r => r.purpose === 'dkim').length > 0 && (
                         <div>
                           <h4 className="font-semibold mb-2">3. DKIM Records (CNAME)</h4>
                           <p className="text-sm text-muted-foreground mb-3">
                             Add these CNAME records for email authentication and spam prevention:
                           </p>
-                          {domainDkimTokens[domain.identity].map((token, index) => (
-                            <div key={index} className="bg-muted p-3 rounded-md space-y-2 mb-3">
+                          {domain.dnsRecords.filter(r => r.purpose === 'dkim').map((record, index) => (
+                            <div key={record.id} className="bg-muted p-3 rounded-md space-y-2 mb-3">
                               <div className="flex items-center justify-between">
                                 <div className="flex-1">
                                   <p className="text-xs text-muted-foreground">Name/Host:</p>
                                   <code className="text-sm font-mono break-all" data-testid={`dkim-name-${domain.identity}-${index}`}>
-                                    {token}._domainkey.{domain.identity}
+                                    {record.recordName}
                                   </code>
                                 </div>
                                 <Button 
                                   variant="ghost" 
                                   size="sm"
-                                  onClick={() => copyToClipboard(`${token}._domainkey.${domain.identity}`)}
+                                  onClick={() => copyToClipboard(record.recordName)}
                                   data-testid={`button-copy-dkim-name-${domain.identity}-${index}`}
                                 >
                                   <Copy className="w-4 h-4" />
@@ -493,20 +503,69 @@ export default function Domains() {
                                 <div className="flex-1">
                                   <p className="text-xs text-muted-foreground">Value:</p>
                                   <code className="text-sm font-mono break-all" data-testid={`dkim-value-${domain.identity}-${index}`}>
-                                    {token}.dkim.amazonses.com
+                                    {record.recordValue}
                                   </code>
                                 </div>
                                 <Button 
                                   variant="ghost" 
                                   size="sm"
-                                  onClick={() => copyToClipboard(`${token}.dkim.amazonses.com`)}
+                                  onClick={() => copyToClipboard(record.recordValue)}
                                   data-testid={`button-copy-dkim-value-${domain.identity}-${index}`}
                                 >
                                   <Copy className="w-4 h-4" />
                                 </Button>
                               </div>
                               <div>
-                                <p className="text-xs text-muted-foreground">Type: CNAME</p>
+                                <p className="text-xs text-muted-foreground">Type: {record.recordType}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* DMARC TXT Record */}
+                      {domain.dnsRecords && domain.dnsRecords.filter(r => r.purpose === 'dmarc').length > 0 && (
+                        <div>
+                          <h4 className="font-semibold mb-2">4. DMARC Record (TXT)</h4>
+                          <p className="text-sm text-muted-foreground mb-3">
+                            Add this DMARC record to specify how email receivers should handle unauthenticated messages:
+                          </p>
+                          {domain.dnsRecords.filter(r => r.purpose === 'dmarc').map((record) => (
+                            <div key={record.id} className="bg-muted p-3 rounded-md space-y-2 mb-3">
+                              <div className="flex items-center justify-between">
+                                <div className="flex-1">
+                                  <p className="text-xs text-muted-foreground">Name/Host:</p>
+                                  <code className="text-sm font-mono break-all" data-testid={`dmarc-name-${domain.identity}`}>
+                                    {record.recordName}
+                                  </code>
+                                </div>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => copyToClipboard(record.recordName)}
+                                  data-testid={`button-copy-dmarc-name-${domain.identity}`}
+                                >
+                                  <Copy className="w-4 h-4" />
+                                </Button>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <div className="flex-1">
+                                  <p className="text-xs text-muted-foreground">Value:</p>
+                                  <code className="text-sm font-mono break-all" data-testid={`dmarc-value-${domain.identity}`}>
+                                    {record.recordValue}
+                                  </code>
+                                </div>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => copyToClipboard(record.recordValue)}
+                                  data-testid={`button-copy-dmarc-value-${domain.identity}`}
+                                >
+                                  <Copy className="w-4 h-4" />
+                                </Button>
+                              </div>
+                              <div>
+                                <p className="text-xs text-muted-foreground">Type: {record.recordType}</p>
                               </div>
                             </div>
                           ))}
@@ -515,7 +574,7 @@ export default function Domains() {
 
                       {/* SNS Webhook Configuration */}
                       <div>
-                        <h4 className="font-semibold mb-2">4. Bounce & Complaint Tracking (Optional)</h4>
+                        <h4 className="font-semibold mb-2">5. Bounce & Complaint Tracking (Optional)</h4>
                         <p className="text-sm text-muted-foreground mb-3">
                           Configure AWS SNS to track bounces and complaints:
                         </p>
