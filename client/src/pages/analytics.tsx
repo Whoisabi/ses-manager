@@ -138,7 +138,7 @@ export default function Analytics() {
         
         <div className="p-6 space-y-6">
           {/* Key Metrics */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Total Sent</CardTitle>
@@ -182,6 +182,22 @@ export default function Analytics() {
                 <p className="text-xs text-muted-foreground flex items-center">
                   <TrendingUp className="w-3 h-3 mr-1 text-green-600" />
                   {stats?.totalOpened?.toLocaleString() || 0} opens
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Click Rate</CardTitle>
+                <MousePointer className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold" data-testid="stat-click-rate">
+                  {clickRate}%
+                </div>
+                <p className="text-xs text-muted-foreground flex items-center">
+                  <TrendingUp className="w-3 h-3 mr-1 text-green-600" />
+                  {stats?.totalClicked?.toLocaleString() || 0} clicks
                 </p>
               </CardContent>
             </Card>

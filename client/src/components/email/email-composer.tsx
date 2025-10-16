@@ -22,6 +22,7 @@ const quickSendSchema = z.object({
   subject: z.string().min(1, "Subject is required"),
   content: z.string().min(1, "Content is required"),
   from: z.string().email("Please enter a valid from email address"),
+  configurationSetName: z.string().optional(),
 });
 
 interface EmailComposerProps {
@@ -41,12 +42,18 @@ export default function EmailComposer({ showHeader = true }: EmailComposerProps)
       subject: "",
       content: "",
       from: "",
+      configurationSetName: "",
     },
   });
 
   // Fetch verified identities (domains and emails)
   const { data: identities, isLoading: loadingIdentities } = useQuery<SESIdentitiesResponse>({
     queryKey: ["/api/ses/identities"],
+  });
+
+  // Fetch configuration sets
+  const { data: configSets, isLoading: loadingConfigSets } = useQuery({
+    queryKey: ["/api/ses/configuration-sets"],
   });
 
   const sendEmailMutation = useMutation({
@@ -295,6 +302,40 @@ export default function EmailComposer({ showHeader = true }: EmailComposerProps)
                   placeholder="Enter your message..."
                 />
               </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="configurationSetName"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Email Tracking (Optional)</FormLabel>
+              <Select 
+                onValueChange={field.onChange}
+                value={field.value}
+                disabled={loadingConfigSets}
+              >
+                <FormControl>
+                  <SelectTrigger data-testid="select-single-email-config-set">
+                    <SelectValue placeholder={loadingConfigSets ? "Loading..." : "Select configuration set..."} />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="none" data-testid="select-item-none">No tracking</SelectItem>
+                  {!loadingConfigSets && (configSets as any[])?.map((configSet: any) => (
+                    <SelectItem 
+                      key={configSet.id} 
+                      value={configSet.name}
+                      data-testid={`select-item-config-${configSet.id}`}
+                    >
+                      {configSet.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <FormMessage />
             </FormItem>
           )}

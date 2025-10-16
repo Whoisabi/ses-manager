@@ -11,7 +11,8 @@ import {
   LogOut,
   Shield,
   Globe,
-  MailCheck
+  MailCheck,
+  Activity
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import DOMPurify from 'dompurify';
@@ -21,6 +22,7 @@ const navigation = [
   { name: "SES Dashboard", href: "/ses-dashboard", icon: Shield },
   { name: "Domains", href: "/domains", icon: Globe },
   { name: "Email Verification", href: "/email-verification", icon: MailCheck },
+  { name: "Configuration Sets", href: "/configuration-sets", icon: Activity },
   { name: "Send Email", href: "/send-email", icon: NotebookPen },
   { name: "Templates", href: "/templates", icon: FileText },
   { name: "Recipients", href: "/recipients", icon: Users },

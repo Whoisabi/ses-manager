@@ -17,6 +17,7 @@ import Settings from "@/pages/settings";
 import SESDashboard from "@/pages/ses-dashboard";
 import Domains from "@/pages/domains";
 import EmailVerification from "@/pages/email-verification";
+import ConfigurationSets from "@/pages/configuration-sets";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -33,6 +34,7 @@ function Router() {
       <ProtectedRoute path="/ses-dashboard" component={SESDashboard} />
       <ProtectedRoute path="/domains" component={Domains} />
       <ProtectedRoute path="/email-verification" component={EmailVerification} />
+      <ProtectedRoute path="/configuration-sets" component={ConfigurationSets} />
       <ProtectedRoute path="/settings" component={Settings} />
       <Route component={NotFound} />
     </Switch>

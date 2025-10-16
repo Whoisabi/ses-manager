@@ -29,6 +29,7 @@ export interface QuickSendForm {
   subject: string;
   content: string;
   from: string;
+  configurationSetName?: string;
 }
 
 export interface BulkSendForm {
@@ -36,6 +37,7 @@ export interface BulkSendForm {
   content: string;
   recipientListId: string;
   from: string;
+  configurationSetName?: string;
 }
 
 export interface AwsCredentialsForm {

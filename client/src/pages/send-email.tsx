@@ -25,6 +25,7 @@ const bulkSendSchema = z.object({
   content: z.string().min(1, "Content is required"),
   recipientListId: z.string().min(1, "Please select a recipient list"),
   from: z.string().email("Sender email is required and must be valid"),
+  configurationSetName: z.string().optional(),
 });
 
 export default function SendEmail() {
@@ -41,6 +42,7 @@ export default function SendEmail() {
       content: "",
       recipientListId: "",
       from: "",
+      configurationSetName: "",
     },
   });
 
@@ -57,6 +59,12 @@ export default function SendEmail() {
   // Fetch verified identities (domains and emails)
   const { data: identities, isLoading: loadingIdentities } = useQuery<SESIdentitiesResponse>({
     queryKey: ["/api/ses/identities"],
+    enabled: !!user,
+  });
+
+  // Fetch configuration sets
+  const { data: configSets, isLoading: loadingConfigSets } = useQuery({
+    queryKey: ["/api/ses/configuration-sets"],
     enabled: !!user,
   });
 
@@ -439,6 +447,40 @@ export default function SendEmail() {
                             <span className="text-xs text-muted-foreground">+ any custom fields from CSV</span>
                           </div>
                         </div>
+
+                        <FormField
+                          control={form.control}
+                          name="configurationSetName"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Email Tracking (Optional)</FormLabel>
+                              <Select 
+                                onValueChange={field.onChange}
+                                value={field.value}
+                                disabled={loadingConfigSets}
+                              >
+                                <FormControl>
+                                  <SelectTrigger data-testid="select-bulk-email-config-set">
+                                    <SelectValue placeholder={loadingConfigSets ? "Loading..." : "Select configuration set..."} />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="none" data-testid="select-item-bulk-none">No tracking</SelectItem>
+                                  {!loadingConfigSets && (configSets as any[])?.map((configSet: any) => (
+                                    <SelectItem 
+                                      key={configSet.id} 
+                                      value={configSet.name}
+                                      data-testid={`select-item-bulk-config-${configSet.id}`}
+                                    >
+                                      {configSet.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
 
                         <Button 
                           type="submit" 
