@@ -771,6 +771,117 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // SNS webhook endpoint (public - receives SNS notifications)
+  app.post('/api/sns/notifications', express.raw({ type: 'text/plain' }), async (req: Request, res: Response) => {
+    try {
+      const body = req.body.toString();
+      const message = JSON.parse(body);
+
+      console.log('SNS notification received:', message.Type);
+
+      // Validate SNS message signature
+      const MessageValidator = require('sns-validator');
+      const validator = new MessageValidator();
+
+      await new Promise((resolve, reject) => {
+        validator.validate(message, (err: Error | null, validatedMessage: any) => {
+          if (err) {
+            console.error('SNS signature validation failed:', err);
+            reject(err);
+          } else {
+            resolve(validatedMessage);
+          }
+        });
+      });
+
+      console.log('SNS signature validated successfully');
+
+      // Handle subscription confirmation
+      if (message.Type === 'SubscriptionConfirmation') {
+        console.log('Confirming SNS subscription:', message.SubscribeURL);
+        
+        // Fetch the subscription URL to confirm
+        const https = await import('https');
+        https.get(message.SubscribeURL, (response) => {
+          console.log('Subscription confirmed:', response.statusCode);
+        });
+
+        return res.status(200).send('Subscription confirmed');
+      }
+
+      // Handle notifications
+      if (message.Type === 'Notification') {
+        const notification = JSON.parse(message.Message);
+        console.log('SNS notification type:', notification.notificationType);
+
+        if (notification.notificationType === 'Bounce') {
+          const messageId = notification.mail.messageId;
+          const emailSend = await storage.getEmailSendByMessageId(messageId);
+          
+          if (emailSend) {
+            await storage.updateEmailSend(emailSend.id, {
+              status: 'bounced',
+              bouncedAt: new Date(),
+              bounceReason: JSON.stringify(notification.bounce),
+            });
+            
+            await storage.createTrackingEvent({
+              emailSendId: emailSend.id,
+              eventType: 'bounce',
+              eventData: notification.bounce,
+            });
+          }
+        } else if (notification.notificationType === 'Complaint') {
+          const messageId = notification.mail.messageId;
+          const emailSend = await storage.getEmailSendByMessageId(messageId);
+          
+          if (emailSend) {
+            await storage.updateEmailSend(emailSend.id, {
+              status: 'complained',
+              complainedAt: new Date(),
+              complaintReason: JSON.stringify(notification.complaint),
+            });
+            
+            await storage.createTrackingEvent({
+              emailSendId: emailSend.id,
+              eventType: 'complaint',
+              eventData: notification.complaint,
+            });
+          }
+        } else if (notification.notificationType === 'Delivery') {
+          const messageId = notification.mail.messageId;
+          const emailSend = await storage.getEmailSendByMessageId(messageId);
+          
+          if (emailSend && !emailSend.deliveredAt) {
+            await storage.updateEmailSend(emailSend.id, {
+              status: 'delivered',
+              deliveredAt: new Date(),
+            });
+            
+            await storage.createTrackingEvent({
+              emailSendId: emailSend.id,
+              eventType: 'delivery',
+              eventData: notification.delivery,
+            });
+          }
+        }
+
+        return res.status(200).send('Notification processed');
+      }
+
+      res.status(200).send('OK');
+    } catch (error) {
+      console.error('Error processing SNS notification:', error);
+      
+      // Return 400 for validation errors, 500 for other errors
+      if (error instanceof Error && error.message.includes('validation')) {
+        return res.status(400).send('Invalid SNS message signature');
+      }
+      
+      res.status(500).send('Error processing notification');
+    }
+  });
+
   // Get DNS records for a domain
   app.get('/api/domains/:domainId/dns-records', isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
