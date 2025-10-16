@@ -42,6 +42,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 export default function Domains() {
   const { toast } = useToast();
@@ -313,280 +321,376 @@ export default function Domains() {
             </Card>
           ) : (
             <div className="space-y-4">
-              {domains.map((domain) => (
-                <Card key={domain.identity} data-testid={`card-domain-${domain.identity}`}>
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <Globe className="w-5 h-5" />
-                        <div>
-                          <CardTitle>{domain.identity}</CardTitle>
-                          <CardDescription>Domain identity</CardDescription>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {getStatusBadge(domain.status)}
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="outline" size="sm" data-testid={`button-delete-${domain.identity}`}>
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Delete Domain</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Are you sure you want to delete {domain.identity}? 
-                                You won't be able to send emails from this domain anymore.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() => deleteDomainMutation.mutate(domain.identity)}
-                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                              >
-                                Delete
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
-                    </div>
-                    {domainStats[domain.identity] && (
-                      <div className="mt-4 grid grid-cols-2 gap-4" data-testid={`stats-${domain.identity}`}>
-                        <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
-                          <AlertTriangle className="w-4 h-4 text-orange-500" />
+              {domains.map((domain) => {
+                const dkimRecords = domain.dnsRecords?.filter(r => r.purpose === 'dkim') || [];
+                const dmarcRecords = domain.dnsRecords?.filter(r => r.purpose === 'dmarc') || [];
+                const verificationRecords = domain.dnsRecords?.filter(r => r.purpose === 'verification') || [];
+                const spfRecords = domain.dnsRecords?.filter(r => r.purpose === 'spf') || [];
+
+                return (
+                  <Card key={domain.identity} data-testid={`card-domain-${domain.identity}`}>
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <Globe className="w-5 h-5" />
                           <div>
-                            <p className="text-xs text-muted-foreground">Bounce Rate</p>
-                            <p className="text-lg font-semibold" data-testid={`bounce-rate-${domain.identity}`}>
-                              {domainStats[domain.identity].bounceRate.toFixed(1)}%
-                            </p>
+                            <CardTitle>{domain.identity}</CardTitle>
+                            <CardDescription>Domain identity</CardDescription>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
-                          <TrendingUp className="w-4 h-4 text-red-500" />
-                          <div>
-                            <p className="text-xs text-muted-foreground">Complaint Rate</p>
-                            <p className="text-lg font-semibold" data-testid={`complaint-rate-${domain.identity}`}>
-                              {domainStats[domain.identity].complaintRate.toFixed(1)}%
-                            </p>
-                          </div>
+                        <div className="flex items-center gap-2">
+                          {getStatusBadge(domain.status)}
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="outline" size="sm" data-testid={`button-delete-${domain.identity}`}>
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete Domain</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Are you sure you want to delete {domain.identity}? 
+                                  You won't be able to send emails from this domain anymore.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => deleteDomainMutation.mutate(domain.identity)}
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                >
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                         </div>
                       </div>
-                    )}
-                  </CardHeader>
-                  {domain.verificationToken && (
+                      {domainStats[domain.identity] && (
+                        <div className="mt-4 grid grid-cols-2 gap-4" data-testid={`stats-${domain.identity}`}>
+                          <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
+                            <AlertTriangle className="w-4 h-4 text-orange-500" />
+                            <div>
+                              <p className="text-xs text-muted-foreground">Bounce Rate</p>
+                              <p className="text-lg font-semibold" data-testid={`bounce-rate-${domain.identity}`}>
+                                {domainStats[domain.identity].bounceRate.toFixed(1)}%
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
+                            <TrendingUp className="w-4 h-4 text-red-500" />
+                            <div>
+                              <p className="text-xs text-muted-foreground">Complaint Rate</p>
+                              <p className="text-lg font-semibold" data-testid={`complaint-rate-${domain.identity}`}>
+                                {domainStats[domain.identity].complaintRate.toFixed(1)}%
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </CardHeader>
                     <CardContent className="space-y-6">
-                      {/* Domain Verification TXT Record */}
-                      <div>
-                        <h4 className="font-semibold mb-2">1. Domain Verification (TXT Record)</h4>
-                        <p className="text-sm text-muted-foreground mb-3">
-                          Add this TXT record to your DNS settings to verify domain ownership:
-                        </p>
-                        <div className="bg-muted p-3 rounded-md space-y-2">
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1">
-                              <p className="text-xs text-muted-foreground">Name/Host:</p>
-                              <code className="text-sm font-mono" data-testid={`txt-name-${domain.identity}`}>
-                                _amazonses.{domain.identity}
-                              </code>
-                            </div>
-                            <Button 
-                              variant="ghost" 
-                              size="sm"
-                              onClick={() => copyToClipboard(`_amazonses.${domain.identity}`)}
-                              data-testid={`button-copy-name-${domain.identity}`}
-                            >
-                              <Copy className="w-4 h-4" />
-                            </Button>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1">
-                              <p className="text-xs text-muted-foreground">Value:</p>
-                              <code className="text-sm font-mono break-all" data-testid={`txt-value-${domain.identity}`}>
-                                {domain.verificationToken}
-                              </code>
-                            </div>
-                            <Button 
-                              variant="ghost" 
-                              size="sm"
-                              onClick={() => copyToClipboard(domain.verificationToken!)}
-                              data-testid={`button-copy-value-${domain.identity}`}
-                            >
-                              <Copy className="w-4 h-4" />
-                            </Button>
-                          </div>
+                      {/* Domain Verification Section */}
+                      {(verificationRecords.length > 0 || domain.verificationToken) && (
+                        <div className="space-y-3">
                           <div>
-                            <p className="text-xs text-muted-foreground">Type: TXT</p>
+                            <h4 className="font-semibold text-base mb-1">Domain Verification</h4>
+                            <p className="text-sm text-muted-foreground">
+                              Add this TXT record to verify domain ownership
+                            </p>
                           </div>
-                        </div>
-                      </div>
-
-                      {/* SPF Record */}
-                      <div>
-                        <h4 className="font-semibold mb-2">2. SPF Record (TXT Record)</h4>
-                        <p className="text-sm text-muted-foreground mb-3">
-                          Add this SPF record to authorize AWS SES to send emails from your domain:
-                        </p>
-                        <div className="bg-muted p-3 rounded-md space-y-2">
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1">
-                              <p className="text-xs text-muted-foreground">Name/Host:</p>
-                              <code className="text-sm font-mono" data-testid={`spf-name-${domain.identity}`}>
-                                {domain.identity}
-                              </code>
-                            </div>
-                            <Button 
-                              variant="ghost" 
-                              size="sm"
-                              onClick={() => copyToClipboard(domain.identity)}
-                              data-testid={`button-copy-spf-name-${domain.identity}`}
-                            >
-                              <Copy className="w-4 h-4" />
-                            </Button>
+                          <Alert className="bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
+                            <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                            <AlertDescription className="text-sm text-blue-900 dark:text-blue-100">
+                              After you've created your domain identity with Easy DKIM, you must complete the verification process by copying the following CNAME records to publish to your domain's DNS provider. Detection of these records may take up to 72 hours.
+                            </AlertDescription>
+                          </Alert>
+                          <div className="rounded-md border">
+                            <Table>
+                              <TableHeader>
+                                <TableRow className="bg-muted/50">
+                                  <TableHead className="font-semibold">Type</TableHead>
+                                  <TableHead className="font-semibold">Name</TableHead>
+                                  <TableHead className="font-semibold">Value</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                <TableRow>
+                                  <TableCell className="font-mono text-sm">TXT</TableCell>
+                                  <TableCell className="font-mono text-sm">
+                                    <div className="flex items-center gap-2">
+                                      <span className="break-all" data-testid={`verification-name-${domain.identity}`}>
+                                        {verificationRecords[0]?.recordName || `_amazonses.${domain.identity}`}
+                                      </span>
+                                      <Button 
+                                        variant="ghost" 
+                                        size="sm"
+                                        className="h-8 w-8 p-0"
+                                        onClick={() => copyToClipboard(verificationRecords[0]?.recordName || `_amazonses.${domain.identity}`)}
+                                        data-testid={`button-copy-verification-name-${domain.identity}`}
+                                      >
+                                        <Copy className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="font-mono text-sm">
+                                    <div className="flex items-center gap-2">
+                                      <span className="break-all" data-testid={`verification-value-${domain.identity}`}>
+                                        {verificationRecords[0]?.recordValue || domain.verificationToken}
+                                      </span>
+                                      <Button 
+                                        variant="ghost" 
+                                        size="sm"
+                                        className="h-8 w-8 p-0"
+                                        onClick={() => copyToClipboard(verificationRecords[0]?.recordValue || domain.verificationToken!)}
+                                        data-testid={`button-copy-verification-value-${domain.identity}`}
+                                      >
+                                        <Copy className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              </TableBody>
+                            </Table>
                           </div>
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1">
-                              <p className="text-xs text-muted-foreground">Value:</p>
-                              <code className="text-sm font-mono break-all" data-testid={`spf-value-${domain.identity}`}>
-                                v=spf1 include:amazonses.com ~all
-                              </code>
-                            </div>
-                            <Button 
-                              variant="ghost" 
-                              size="sm"
-                              onClick={() => copyToClipboard('v=spf1 include:amazonses.com ~all')}
-                              data-testid={`button-copy-spf-value-${domain.identity}`}
-                            >
-                              <Copy className="w-4 h-4" />
-                            </Button>
-                          </div>
-                          <div>
-                            <p className="text-xs text-muted-foreground">Type: TXT</p>
-                          </div>
-                        </div>
-                        <Alert className="mt-3">
-                          <Info className="h-4 w-4" />
-                          <AlertDescription className="text-sm">
-                            If you already have an SPF record, add <code className="text-xs">include:amazonses.com</code> before the final mechanism (~all or -all).
-                          </AlertDescription>
-                        </Alert>
-                      </div>
-
-                      {/* DKIM CNAME Records */}
-                      {domain.dnsRecords && domain.dnsRecords.filter(r => r.purpose === 'dkim').length > 0 && (
-                        <div>
-                          <h4 className="font-semibold mb-2">3. DKIM Records (CNAME)</h4>
-                          <p className="text-sm text-muted-foreground mb-3">
-                            Add these CNAME records for email authentication and spam prevention:
-                          </p>
-                          {domain.dnsRecords.filter(r => r.purpose === 'dkim').map((record, index) => (
-                            <div key={record.id} className="bg-muted p-3 rounded-md space-y-2 mb-3">
-                              <div className="flex items-center justify-between">
-                                <div className="flex-1">
-                                  <p className="text-xs text-muted-foreground">Name/Host:</p>
-                                  <code className="text-sm font-mono break-all" data-testid={`dkim-name-${domain.identity}-${index}`}>
-                                    {record.recordName}
-                                  </code>
-                                </div>
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm"
-                                  onClick={() => copyToClipboard(record.recordName)}
-                                  data-testid={`button-copy-dkim-name-${domain.identity}-${index}`}
-                                >
-                                  <Copy className="w-4 h-4" />
-                                </Button>
-                              </div>
-                              <div className="flex items-center justify-between">
-                                <div className="flex-1">
-                                  <p className="text-xs text-muted-foreground">Value:</p>
-                                  <code className="text-sm font-mono break-all" data-testid={`dkim-value-${domain.identity}-${index}`}>
-                                    {record.recordValue}
-                                  </code>
-                                </div>
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm"
-                                  onClick={() => copyToClipboard(record.recordValue)}
-                                  data-testid={`button-copy-dkim-value-${domain.identity}-${index}`}
-                                >
-                                  <Copy className="w-4 h-4" />
-                                </Button>
-                              </div>
-                              <div>
-                                <p className="text-xs text-muted-foreground">Type: {record.recordType}</p>
-                              </div>
-                            </div>
-                          ))}
                         </div>
                       )}
 
-                      {/* DMARC TXT Record */}
-                      {domain.dnsRecords && domain.dnsRecords.filter(r => r.purpose === 'dmarc').length > 0 && (
-                        <div>
-                          <h4 className="font-semibold mb-2">4. DMARC Record (TXT)</h4>
-                          <p className="text-sm text-muted-foreground mb-3">
-                            Add this DMARC record to specify how email receivers should handle unauthenticated messages:
-                          </p>
-                          {domain.dnsRecords.filter(r => r.purpose === 'dmarc').map((record) => (
-                            <div key={record.id} className="bg-muted p-3 rounded-md space-y-2 mb-3">
-                              <div className="flex items-center justify-between">
-                                <div className="flex-1">
-                                  <p className="text-xs text-muted-foreground">Name/Host:</p>
-                                  <code className="text-sm font-mono break-all" data-testid={`dmarc-name-${domain.identity}`}>
-                                    {record.recordName}
-                                  </code>
-                                </div>
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm"
-                                  onClick={() => copyToClipboard(record.recordName)}
-                                  data-testid={`button-copy-dmarc-name-${domain.identity}`}
-                                >
-                                  <Copy className="w-4 h-4" />
-                                </Button>
-                              </div>
-                              <div className="flex items-center justify-between">
-                                <div className="flex-1">
-                                  <p className="text-xs text-muted-foreground">Value:</p>
-                                  <code className="text-sm font-mono break-all" data-testid={`dmarc-value-${domain.identity}`}>
-                                    {record.recordValue}
-                                  </code>
-                                </div>
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm"
-                                  onClick={() => copyToClipboard(record.recordValue)}
-                                  data-testid={`button-copy-dmarc-value-${domain.identity}`}
-                                >
-                                  <Copy className="w-4 h-4" />
-                                </Button>
-                              </div>
-                              <div>
-                                <p className="text-xs text-muted-foreground">Type: {record.recordType}</p>
-                              </div>
+                      {/* DKIM Section */}
+                      {dkimRecords.length > 0 && (
+                        <div className="space-y-3">
+                          <div>
+                            <h4 className="font-semibold text-base mb-1">DomainKeys Identified Mail (DKIM)</h4>
+                            <p className="text-sm text-muted-foreground">
+                              DKIM-signed messages help receiving mail servers validate that a message was not forged or altered in transit
+                            </p>
+                          </div>
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium">DKIM configuration</span>
+                              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-400 dark:border-green-800">
+                                <CheckCircle2 className="w-3 h-3 mr-1" />
+                                Successful
+                              </Badge>
                             </div>
-                          ))}
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium">DKIM signatures</span>
+                              <Badge variant="outline">Enabled</Badge>
+                            </div>
+                          </div>
+                          <Alert className="bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
+                            <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                            <AlertDescription className="text-sm text-blue-900 dark:text-blue-100">
+                              After you've created your domain identity with Easy DKIM, you must complete the verification process by copying the following CNAME records to publish to your domain's DNS provider. Detection of these records may take up to 72 hours.
+                            </AlertDescription>
+                          </Alert>
+                          <div className="rounded-md border">
+                            <Table>
+                              <TableHeader>
+                                <TableRow className="bg-muted/50">
+                                  <TableHead className="font-semibold">Type</TableHead>
+                                  <TableHead className="font-semibold">Name</TableHead>
+                                  <TableHead className="font-semibold">Value</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {dkimRecords.map((record, index) => (
+                                  <TableRow key={record.id}>
+                                    <TableCell className="font-mono text-sm">{record.recordType}</TableCell>
+                                    <TableCell className="font-mono text-sm">
+                                      <div className="flex items-center gap-2">
+                                        <span className="break-all" data-testid={`dkim-name-${domain.identity}-${index}`}>
+                                          {record.recordName}
+                                        </span>
+                                        <Button 
+                                          variant="ghost" 
+                                          size="sm"
+                                          className="h-8 w-8 p-0"
+                                          onClick={() => copyToClipboard(record.recordName)}
+                                          data-testid={`button-copy-dkim-name-${domain.identity}-${index}`}
+                                        >
+                                          <Copy className="h-3 w-3" />
+                                        </Button>
+                                      </div>
+                                    </TableCell>
+                                    <TableCell className="font-mono text-sm">
+                                      <div className="flex items-center gap-2">
+                                        <span className="break-all" data-testid={`dkim-value-${domain.identity}-${index}`}>
+                                          {record.recordValue}
+                                        </span>
+                                        <Button 
+                                          variant="ghost" 
+                                          size="sm"
+                                          className="h-8 w-8 p-0"
+                                          onClick={() => copyToClipboard(record.recordValue)}
+                                          data-testid={`button-copy-dkim-value-${domain.identity}-${index}`}
+                                        >
+                                          <Copy className="h-3 w-3" />
+                                        </Button>
+                                      </div>
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* DMARC Section */}
+                      {dmarcRecords.length > 0 && (
+                        <div className="space-y-3">
+                          <div>
+                            <h4 className="font-semibold text-base mb-1">Domain-based Message Authentication, Reporting, and Conformance (DMARC)</h4>
+                            <p className="text-sm text-muted-foreground">
+                              DMARC specifies how email servers should handle messages that fail the authentication checks
+                            </p>
+                          </div>
+                          <Alert className="bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
+                            <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                            <AlertDescription className="text-sm text-blue-900 dark:text-blue-100">
+                              You can edit the Value provided below to modify the DMARC policy you want to apply to your domain.
+                            </AlertDescription>
+                          </Alert>
+                          <div className="rounded-md border">
+                            <Table>
+                              <TableHeader>
+                                <TableRow className="bg-muted/50">
+                                  <TableHead className="font-semibold">Type</TableHead>
+                                  <TableHead className="font-semibold">Name</TableHead>
+                                  <TableHead className="font-semibold">Value</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {dmarcRecords.map((record) => (
+                                  <TableRow key={record.id}>
+                                    <TableCell className="font-mono text-sm">{record.recordType}</TableCell>
+                                    <TableCell className="font-mono text-sm">
+                                      <div className="flex items-center gap-2">
+                                        <span className="break-all" data-testid={`dmarc-name-${domain.identity}`}>
+                                          {record.recordName}
+                                        </span>
+                                        <Button 
+                                          variant="ghost" 
+                                          size="sm"
+                                          className="h-8 w-8 p-0"
+                                          onClick={() => copyToClipboard(record.recordName)}
+                                          data-testid={`button-copy-dmarc-name-${domain.identity}`}
+                                        >
+                                          <Copy className="h-3 w-3" />
+                                        </Button>
+                                      </div>
+                                    </TableCell>
+                                    <TableCell className="font-mono text-sm">
+                                      <div className="flex items-center gap-2">
+                                        <span className="break-all" data-testid={`dmarc-value-${domain.identity}`}>
+                                          {record.recordValue}
+                                        </span>
+                                        <Button 
+                                          variant="ghost" 
+                                          size="sm"
+                                          className="h-8 w-8 p-0"
+                                          onClick={() => copyToClipboard(record.recordValue)}
+                                          data-testid={`button-copy-dmarc-value-${domain.identity}`}
+                                        >
+                                          <Copy className="h-3 w-3" />
+                                        </Button>
+                                      </div>
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* SPF Section */}
+                      {spfRecords.length > 0 && (
+                        <div className="space-y-3">
+                          <div>
+                            <h4 className="font-semibold text-base mb-1">SPF Record</h4>
+                            <p className="text-sm text-muted-foreground">
+                              Sender Policy Framework (SPF) authorizes AWS SES to send emails on behalf of your domain
+                            </p>
+                          </div>
+                          <div className="rounded-md border">
+                            <Table>
+                              <TableHeader>
+                                <TableRow className="bg-muted/50">
+                                  <TableHead className="font-semibold">Type</TableHead>
+                                  <TableHead className="font-semibold">Name</TableHead>
+                                  <TableHead className="font-semibold">Value</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {spfRecords.map((record) => (
+                                  <TableRow key={record.id}>
+                                    <TableCell className="font-mono text-sm">{record.recordType}</TableCell>
+                                    <TableCell className="font-mono text-sm">
+                                      <div className="flex items-center gap-2">
+                                        <span className="break-all" data-testid={`spf-name-${domain.identity}`}>
+                                          {record.recordName}
+                                        </span>
+                                        <Button 
+                                          variant="ghost" 
+                                          size="sm"
+                                          className="h-8 w-8 p-0"
+                                          onClick={() => copyToClipboard(record.recordName)}
+                                          data-testid={`button-copy-spf-name-${domain.identity}`}
+                                        >
+                                          <Copy className="h-3 w-3" />
+                                        </Button>
+                                      </div>
+                                    </TableCell>
+                                    <TableCell className="font-mono text-sm">
+                                      <div className="flex items-center gap-2">
+                                        <span className="break-all" data-testid={`spf-value-${domain.identity}`}>
+                                          {record.recordValue}
+                                        </span>
+                                        <Button 
+                                          variant="ghost" 
+                                          size="sm"
+                                          className="h-8 w-8 p-0"
+                                          onClick={() => copyToClipboard(record.recordValue)}
+                                          data-testid={`button-copy-spf-value-${domain.identity}`}
+                                        >
+                                          <Copy className="h-3 w-3" />
+                                        </Button>
+                                      </div>
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                          <Alert>
+                            <Info className="h-4 w-4" />
+                            <AlertDescription className="text-sm">
+                              If you already have an SPF record, add <code className="text-xs bg-muted px-1 py-0.5 rounded">include:amazonses.com</code> before the final mechanism (~all or -all).
+                            </AlertDescription>
+                          </Alert>
                         </div>
                       )}
 
                       {/* SNS Webhook Configuration */}
-                      <div>
-                        <h4 className="font-semibold mb-2">5. Bounce & Complaint Tracking (Optional)</h4>
-                        <p className="text-sm text-muted-foreground mb-3">
-                          Configure AWS SNS to track bounces and complaints:
-                        </p>
-                        <div className="bg-muted p-3 rounded-md space-y-3">
+                      <div className="space-y-3">
+                        <div>
+                          <h4 className="font-semibold text-base mb-1">Bounce & Complaint Tracking (Optional)</h4>
+                          <p className="text-sm text-muted-foreground">
+                            Configure AWS SNS to track bounces and complaints
+                          </p>
+                        </div>
+                        <div className="bg-muted/50 p-4 rounded-md space-y-3">
                           <div>
-                            <p className="text-xs text-muted-foreground mb-2">Webhook URL:</p>
+                            <p className="text-xs font-medium text-muted-foreground mb-2">Webhook URL:</p>
                             <div className="flex items-center gap-2">
-                              <code className="text-sm font-mono flex-1 break-all" data-testid={`webhook-url-${domain.identity}`}>
+                              <code className="text-sm font-mono flex-1 break-all bg-background px-3 py-2 rounded border" data-testid={`webhook-url-${domain.identity}`}>
                                 {window.location.origin}/api/sns/notifications
                               </code>
                               <Button 
-                                variant="ghost" 
+                                variant="outline" 
                                 size="sm"
                                 onClick={() => copyToClipboard(`${window.location.origin}/api/sns/notifications`)}
                                 data-testid={`button-copy-webhook-${domain.identity}`}
@@ -607,18 +711,10 @@ export default function Domains() {
                           </Alert>
                         </div>
                       </div>
-                      
-                      <Alert>
-                        <Info className="h-4 w-4" />
-                        <AlertDescription className="text-sm">
-                          After adding all DNS records, it may take up to 72 hours for verification to complete. 
-                          You can refresh this page to check the status.
-                        </AlertDescription>
-                      </Alert>
                     </CardContent>
-                  )}
-                </Card>
-              ))}
+                  </Card>
+                );
+              })}
             </div>
           )}
         </div>
