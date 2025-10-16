@@ -19,7 +19,9 @@ import {
   Copy, 
   Trash2,
   RefreshCw,
-  Info
+  Info,
+  AlertTriangle,
+  TrendingUp
 } from "lucide-react";
 import {
   Dialog,
@@ -48,6 +50,7 @@ export default function Domains() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [selectedDomain, setSelectedDomain] = useState<any>(null);
   const [domainDkimTokens, setDomainDkimTokens] = useState<Record<string, string[]>>({});
+  const [domainStats, setDomainStats] = useState<Record<string, any>>({});
 
   const { data: identities, isLoading: identitiesLoading, refetch: refetchIdentities } = useQuery<{
     identities: Array<{
@@ -125,6 +128,37 @@ export default function Domains() {
       return;
     }
   }, [user, isLoading, toast]);
+
+  useEffect(() => {
+    const fetchDomainStats = async () => {
+      if (!identities?.identities) return;
+      
+      const domains = identities.identities.filter(i => i.type === 'domain');
+      const statsPromises = domains.map(async (domain) => {
+        try {
+          const res = await fetch(`/api/bounce-complaint-stats?domain=${encodeURIComponent(domain.identity)}`);
+          if (res.ok) {
+            const data = await res.json();
+            return { domain: domain.identity, stats: data };
+          }
+        } catch (error) {
+          console.error(`Failed to fetch stats for ${domain.identity}:`, error);
+        }
+        return null;
+      });
+
+      const results = await Promise.all(statsPromises);
+      const statsMap: Record<string, any> = {};
+      results.forEach(result => {
+        if (result) {
+          statsMap[result.domain] = result.stats;
+        }
+      });
+      setDomainStats(statsMap);
+    };
+
+    fetchDomainStats();
+  }, [identities]);
 
   if (isLoading) {
     return (
@@ -309,6 +343,28 @@ export default function Domains() {
                         </AlertDialog>
                       </div>
                     </div>
+                    {domainStats[domain.identity] && (
+                      <div className="mt-4 grid grid-cols-2 gap-4" data-testid={`stats-${domain.identity}`}>
+                        <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
+                          <AlertTriangle className="w-4 h-4 text-orange-500" />
+                          <div>
+                            <p className="text-xs text-muted-foreground">Bounce Rate</p>
+                            <p className="text-lg font-semibold" data-testid={`bounce-rate-${domain.identity}`}>
+                              {domainStats[domain.identity].bounceRate.toFixed(1)}%
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
+                          <TrendingUp className="w-4 h-4 text-red-500" />
+                          <div>
+                            <p className="text-xs text-muted-foreground">Complaint Rate</p>
+                            <p className="text-lg font-semibold" data-testid={`complaint-rate-${domain.identity}`}>
+                              {domainStats[domain.identity].complaintRate.toFixed(1)}%
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </CardHeader>
                   {domain.verificationToken && (
                     <CardContent className="space-y-6">
