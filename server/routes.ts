@@ -308,6 +308,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await awsService.initialize(userId);
       await awsService.deleteIdentity(identity);
       
+      // If it's a domain (not an email), also delete from our database
+      if (!identity.includes('@')) {
+        const domain = await storage.getDomainByName(identity, userId);
+        if (domain) {
+          await storage.deleteDomain(domain.id, userId);
+        }
+      }
+      
       res.json({ success: true, message: `Identity ${identity} deleted successfully` });
     } catch (error) {
       console.error("Error deleting identity:", error);
