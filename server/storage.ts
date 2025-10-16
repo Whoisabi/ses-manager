@@ -474,7 +474,7 @@ export class DatabaseStorage implements IStorage {
       last_name: r.lastName,
       metadata: r.metadata ?? null,
       is_active: r.isActive,
-      created_at: r.createdAt ?? new Date(),
+      created_at: new Date(),
     }));
     await prisma.recipient.createMany({ data: mappedData as any });
     // Return all recipients for the list (since createMany doesn't return inserted rows)
@@ -730,8 +730,8 @@ export class DatabaseStorage implements IStorage {
       data: {
         email_send_id: event.emailSendId,
         event_type: event.eventType,
-  event_data: event.eventData as any,
-        timestamp: event.timestamp ?? new Date(),
+        event_data: event.eventData as any,
+        timestamp: new Date(),
       },
     });
     return {

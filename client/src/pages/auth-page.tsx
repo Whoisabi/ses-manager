@@ -9,7 +9,7 @@ import { Mail, Shield, BarChart3, Users, Zap, CheckCircle, Eye, EyeOff } from "l
 import { useAuth } from "@/hooks/useAuth";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertUserSchema } from "@shared/schema";
+import { insertUserSchema } from "@shared/types";
 import { z } from "zod";
 import { Redirect } from "wouter";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
