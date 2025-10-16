@@ -19,6 +19,7 @@ model User {
   aws_credentials   AwsCredential[]
   domains           Domain[]
   email_campaigns   EmailCampaign[]
+  email_sends       EmailSend[]
   email_templates   EmailTemplate[]
   recipient_lists   RecipientList[]
 
@@ -104,6 +105,7 @@ model EmailCampaign {
 
 model EmailSend {
   id                      String                 @id(map: "EmailSend_pkey") @default(uuid())
+  user_id                 String?
   campaign_id             String?
   recipient_email         String
   subject                 String
@@ -122,6 +124,7 @@ model EmailSend {
   created_at              DateTime               @default(now())
   bounce_complaint_events BounceComplaintEvent[]
   campaign                EmailCampaign?         @relation(fields: [campaign_id], references: [id], onDelete: Cascade, map: "EmailSend_campaign_id_fkey")
+  user                    User?                  @relation(fields: [user_id], references: [id], onDelete: Cascade, map: "EmailSend_user_id_fkey")
   tracking_events         EmailTrackingEvent[]
 
   @@map("email_sends")

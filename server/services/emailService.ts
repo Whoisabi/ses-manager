@@ -48,7 +48,7 @@ export class EmailService {
         sentAt: new Date(),
       };
 
-      await storage.createEmailSend(emailSend);
+      await storage.createEmailSend(emailSend, userId);
 
       return messageId;
     } catch (error) {
@@ -64,7 +64,7 @@ export class EmailService {
         trackingPixelId,
       };
 
-      await storage.createEmailSend(emailSend);
+      await storage.createEmailSend(emailSend, userId);
       
       // Preserve the original error message for better user guidance
       if (error instanceof Error) {

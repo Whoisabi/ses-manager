@@ -601,8 +601,9 @@ export class DatabaseStorage implements IStorage {
 
   // Email send operations
 
-  async createEmailSend(emailSend: InsertEmailSend): Promise<EmailSend> {
+  async createEmailSend(emailSend: InsertEmailSend, userId?: string): Promise<EmailSend> {
     const sendData: any = {
+      user_id: userId,
       recipient_email: emailSend.recipientEmail,
       subject: emailSend.subject,
       content: emailSend.content,
@@ -671,7 +672,7 @@ export class DatabaseStorage implements IStorage {
   async getEmailSends(userId: string, limit = 50): Promise<EmailSend[]> {
     const sends = await prisma.emailSend.findMany({
       where: {
-        campaign: { user_id: userId },
+        user_id: userId,
       },
       orderBy: { created_at: 'desc' },
       take: limit,
@@ -802,22 +803,22 @@ export class DatabaseStorage implements IStorage {
     totalComplained: number;
   }> {
     const totalSent = await prisma.emailSend.count({
-      where: { campaign: { user_id: userId } },
+      where: { user_id: userId },
     });
     const totalDelivered = await prisma.emailSend.count({
-      where: { campaign: { user_id: userId }, status: 'delivered' },
+      where: { user_id: userId, status: 'delivered' },
     });
     const totalOpened = await prisma.emailSend.count({
-      where: { campaign: { user_id: userId }, opened_at: { not: null } },
+      where: { user_id: userId, opened_at: { not: null } },
     });
     const totalClicked = await prisma.emailSend.count({
-      where: { campaign: { user_id: userId }, clicked_at: { not: null } },
+      where: { user_id: userId, clicked_at: { not: null } },
     });
     const totalBounced = await prisma.emailSend.count({
-      where: { campaign: { user_id: userId }, status: 'bounced' },
+      where: { user_id: userId, status: 'bounced' },
     });
     const totalComplained = await prisma.emailSend.count({
-      where: { campaign: { user_id: userId }, status: 'complained' },
+      where: { user_id: userId, status: 'complained' },
     });
     return {
       totalSent,
@@ -844,13 +845,12 @@ export class DatabaseStorage implements IStorage {
 
     // Build where clause based on campaign filter
     const whereClause: any = {
+      user_id: userId,
       created_at: { gte: startDate }
     };
 
     if (campaignId) {
       whereClause.campaign_id = campaignId;
-    } else {
-      whereClause.campaign = { user_id: userId };
     }
 
     // Get all email sends for the date range
