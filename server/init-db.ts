@@ -123,6 +123,28 @@ async function fixDatabaseSchema(prisma: PrismaClient) {
       console.log('✅ Created bounce_complaint_events table');
     }
     
+    const configurationSetsTable = await prisma.$queryRawUnsafe<any[]>(`
+      SELECT table_name FROM information_schema.tables 
+      WHERE table_schema = 'public' AND table_name = 'configuration_sets'
+    `);
+    
+    if (configurationSetsTable && configurationSetsTable.length === 0) {
+      console.log('⚠️  Creating missing configuration_sets table...');
+      await prisma.$executeRawUnsafe(`
+        CREATE TABLE configuration_sets (
+          id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          user_id VARCHAR NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          name VARCHAR NOT NULL UNIQUE,
+          sns_topic_arn VARCHAR,
+          open_tracking_enabled BOOLEAN DEFAULT true,
+          click_tracking_enabled BOOLEAN DEFAULT true,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      console.log('✅ Created configuration_sets table');
+    }
+    
     console.log('✅ Database schema fixes complete');
   } catch (error) {
     console.error('⚠️  Error fixing schema:', error);

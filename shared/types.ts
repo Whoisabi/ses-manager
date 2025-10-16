@@ -264,6 +264,25 @@ export type InsertTrackingConfig = {
   webhookUrl?: string | null;
 };
 
+export type ConfigurationSet = {
+  id: string;
+  userId: string;
+  name: string;
+  snsTopicArn: string | null;
+  openTrackingEnabled: boolean;
+  clickTrackingEnabled: boolean;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+};
+
+export type InsertConfigurationSet = {
+  userId: string;
+  name: string;
+  snsTopicArn?: string | null;
+  openTrackingEnabled?: boolean;
+  clickTrackingEnabled?: boolean;
+};
+
 // Zod validation schemas
 export const insertUserSchema = z.object({
   email: z.string().email(),

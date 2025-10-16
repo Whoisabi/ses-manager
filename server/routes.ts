@@ -27,6 +27,7 @@ const sendEmailSchema = z.object({
   subject: z.string().min(1),
   content: z.string().min(1),
   from: z.string().email(),
+  configurationSetName: z.string().optional(),
 });
 
 const sendBulkEmailSchema = z.object({
@@ -34,6 +35,7 @@ const sendBulkEmailSchema = z.object({
   content: z.string().min(1),
   recipientListId: z.string(),
   from: z.string().email(),
+  configurationSetName: z.string().optional(),
 });
 
 const validateAwsCredentialsSchema = z.object({
@@ -377,6 +379,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Configuration Set routes
+  app.get('/api/ses/configuration-sets', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.id;
+      await awsService.initialize(userId);
+
+      const awsConfigSets = await awsService.listConfigurationSets();
+      const dbConfigSets = await storage.getConfigurationSets(userId);
+
+      const configSets = awsConfigSets.map(name => {
+        const dbConfig = dbConfigSets.find(cs => cs.name === name);
+        return {
+          name,
+          snsTopicArn: dbConfig?.snsTopicArn,
+          openTrackingEnabled: dbConfig?.openTrackingEnabled ?? true,
+          clickTrackingEnabled: dbConfig?.clickTrackingEnabled ?? true,
+          createdAt: dbConfig?.createdAt,
+          id: dbConfig?.id,
+        };
+      });
+
+      res.json(configSets);
+    } catch (error) {
+      console.error("Error listing configuration sets:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to list configuration sets";
+      res.status(500).json({ message: errorMessage });
+    }
+  });
+
+  app.post('/api/ses/configuration-sets', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.id;
+      const { name, snsTopicArn, openTrackingEnabled = true, clickTrackingEnabled = true } = req.body;
+
+      if (!name) {
+        return res.status(400).json({ message: "Configuration set name is required" });
+      }
+
+      await awsService.initialize(userId);
+      await awsService.createConfigurationSet(name, snsTopicArn, openTrackingEnabled, clickTrackingEnabled);
+
+      const configSet = await storage.createConfigurationSet({
+        userId,
+        name,
+        snsTopicArn,
+        openTrackingEnabled,
+        clickTrackingEnabled,
+      });
+
+      res.json({ success: true, configSet });
+    } catch (error) {
+      console.error("Error creating configuration set:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to create configuration set";
+      res.status(500).json({ success: false, message: errorMessage });
+    }
+  });
+
+  app.delete('/api/ses/configuration-sets/:name', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.id;
+      const { name } = req.params;
+
+      await awsService.initialize(userId);
+      await awsService.deleteConfigurationSet(name);
+
+      await storage.deleteConfigurationSet(name, userId);
+
+      res.json({ success: true, message: `Configuration set ${name} deleted successfully` });
+    } catch (error) {
+      console.error("Error deleting configuration set:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to delete configuration set";
+      res.status(500).json({ success: false, message: errorMessage });
+    }
+  });
+
   // Email sending routes
   app.post('/api/email/send', isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
@@ -449,6 +526,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             content: data.content,
             campaignId,
             from: data.from,
+            configurationSetName: data.configurationSetName,
           });
           sent++;
           sentEmails.push(recipient.email);
@@ -1226,6 +1304,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
               emailSendId: emailSend.id,
               eventType: 'delivery',
               eventData: message.delivery,
+            });
+          }
+        } else if (message.notificationType === 'Open') {
+          const messageId = message.mail.commonHeaders.messageId;
+          const emailSend = await storage.getEmailSendByMessageId(messageId);
+          
+          if (emailSend && !emailSend.openedAt) {
+            await storage.updateEmailSend(emailSend.id, {
+              openedAt: new Date(),
+            });
+            
+            await storage.createTrackingEvent({
+              emailSendId: emailSend.id,
+              eventType: 'open',
+              eventData: {
+                timestamp: message.open.timestamp,
+                userAgent: message.open.userAgent,
+                ipAddress: message.open.ipAddress,
+              },
+            });
+          }
+        } else if (message.notificationType === 'Click') {
+          const messageId = message.mail.commonHeaders.messageId;
+          const emailSend = await storage.getEmailSendByMessageId(messageId);
+          
+          if (emailSend) {
+            if (!emailSend.clickedAt) {
+              await storage.updateEmailSend(emailSend.id, {
+                clickedAt: new Date(),
+              });
+            }
+            
+            await storage.createTrackingEvent({
+              emailSendId: emailSend.id,
+              eventType: 'click',
+              eventData: {
+                timestamp: message.click.timestamp,
+                link: message.click.link,
+                linkTags: message.click.linkTags,
+                userAgent: message.click.userAgent,
+                ipAddress: message.click.ipAddress,
+              },
             });
           }
         }

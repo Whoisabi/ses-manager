@@ -23,6 +23,8 @@ import {
   type InsertBounceComplaintEvent,
   type TrackingConfig,
   type InsertTrackingConfig,
+  type ConfigurationSet,
+  type InsertConfigurationSet,
   insertUserSchema,
 } from "@shared/types";
 import { prisma } from "./db";
@@ -134,6 +136,12 @@ export interface IStorage {
   getTrackingConfig(userId: string): Promise<TrackingConfig | undefined>;
   upsertTrackingConfig(config: InsertTrackingConfig): Promise<TrackingConfig>;
   deleteTrackingConfig(userId: string): Promise<void>;
+
+  // Configuration Set operations
+  getConfigurationSets(userId: string): Promise<ConfigurationSet[]>;
+  getConfigurationSet(name: string, userId: string): Promise<ConfigurationSet | undefined>;
+  createConfigurationSet(configSet: InsertConfigurationSet): Promise<ConfigurationSet>;
+  deleteConfigurationSet(name: string, userId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1311,6 +1319,77 @@ export class DatabaseStorage implements IStorage {
   async deleteTrackingConfig(userId: string): Promise<void> {
     await prisma.trackingConfig.delete({
       where: { user_id: userId },
+    });
+  }
+
+  async getConfigurationSets(userId: string): Promise<ConfigurationSet[]> {
+    const configSets = await prisma.configurationSet.findMany({
+      where: { user_id: userId },
+    });
+
+    return configSets.map(cs => ({
+      id: cs.id,
+      userId: cs.user_id,
+      name: cs.name,
+      snsTopicArn: cs.sns_topic_arn,
+      openTrackingEnabled: cs.open_tracking_enabled,
+      clickTrackingEnabled: cs.click_tracking_enabled,
+      createdAt: cs.created_at,
+      updatedAt: cs.updated_at,
+    }));
+  }
+
+  async getConfigurationSet(name: string, userId: string): Promise<ConfigurationSet | undefined> {
+    const configSet = await prisma.configurationSet.findFirst({
+      where: {
+        name,
+        user_id: userId,
+      },
+    });
+
+    if (!configSet) return undefined;
+
+    return {
+      id: configSet.id,
+      userId: configSet.user_id,
+      name: configSet.name,
+      snsTopicArn: configSet.sns_topic_arn,
+      openTrackingEnabled: configSet.open_tracking_enabled,
+      clickTrackingEnabled: configSet.click_tracking_enabled,
+      createdAt: configSet.created_at,
+      updatedAt: configSet.updated_at,
+    };
+  }
+
+  async createConfigurationSet(configSet: InsertConfigurationSet): Promise<ConfigurationSet> {
+    const result = await prisma.configurationSet.create({
+      data: {
+        user_id: configSet.userId,
+        name: configSet.name,
+        sns_topic_arn: configSet.snsTopicArn ?? null,
+        open_tracking_enabled: configSet.openTrackingEnabled ?? true,
+        click_tracking_enabled: configSet.clickTrackingEnabled ?? true,
+      },
+    });
+
+    return {
+      id: result.id,
+      userId: result.user_id,
+      name: result.name,
+      snsTopicArn: result.sns_topic_arn,
+      openTrackingEnabled: result.open_tracking_enabled,
+      clickTrackingEnabled: result.click_tracking_enabled,
+      createdAt: result.created_at,
+      updatedAt: result.updated_at,
+    };
+  }
+
+  async deleteConfigurationSet(name: string, userId: string): Promise<void> {
+    await prisma.configurationSet.deleteMany({
+      where: {
+        name,
+        user_id: userId,
+      },
     });
   }
 }

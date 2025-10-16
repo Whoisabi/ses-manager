@@ -9,6 +9,7 @@ export interface SendSingleEmailRequest {
   content: string;
   campaignId?: string;
   from?: string;
+  configurationSetName?: string;
 }
 
 export interface SendBulkEmailRequest {
@@ -17,6 +18,7 @@ export interface SendBulkEmailRequest {
   recipientListId: string;
   campaignId?: string;
   from?: string;
+  configurationSetName?: string;
 }
 
 export class EmailService {
@@ -63,6 +65,7 @@ export class EmailService {
         subject: request.subject,
         htmlBody: contentWithTracking,
         from: request.from,
+        configurationSetName: request.configurationSetName,
       });
 
       // Record the email send with the pre-generated ID
@@ -167,6 +170,7 @@ export class EmailService {
           subject: personalizedSubject,
           htmlBody: contentWithTracking,
           from: request.from,
+          configurationSetName: request.configurationSetName,
         });
 
         emailSends.push({

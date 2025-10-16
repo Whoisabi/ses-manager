@@ -1,4 +1,4 @@
-import { SESClient, SendEmailCommand, SendBulkTemplatedEmailCommand, CreateTemplateCommand, DeleteTemplateCommand, ListTemplatesCommand, ListIdentitiesCommand, GetIdentityVerificationAttributesCommand, VerifyDomainIdentityCommand, VerifyEmailIdentityCommand, VerifyDomainDkimCommand, DeleteIdentityCommand, GetSendQuotaCommand, GetIdentityDkimAttributesCommand } from '@aws-sdk/client-ses';
+import { SESClient, SendEmailCommand, SendBulkTemplatedEmailCommand, CreateTemplateCommand, DeleteTemplateCommand, ListTemplatesCommand, ListIdentitiesCommand, GetIdentityVerificationAttributesCommand, VerifyDomainIdentityCommand, VerifyEmailIdentityCommand, VerifyDomainDkimCommand, DeleteIdentityCommand, GetSendQuotaCommand, GetIdentityDkimAttributesCommand, CreateConfigurationSetCommand, DeleteConfigurationSetCommand, ListConfigurationSetsCommand, UpdateConfigurationSetTrackingOptionsCommand, CreateConfigurationSetEventDestinationCommand } from '@aws-sdk/client-ses';
 import { storage } from '../storage';
 import { decrypt } from './encryptionService';
 
@@ -14,6 +14,7 @@ export interface SendEmailOptions {
   htmlBody: string;
   textBody?: string;
   from?: string;
+  configurationSetName?: string;
 }
 
 export interface SendBulkEmailOptions {
@@ -111,6 +112,9 @@ export class AWSService {
           }),
         },
       },
+      ...(options.configurationSetName && {
+        ConfigurationSetName: options.configurationSetName,
+      }),
     });
 
     const response = await sesClient.send(command);
@@ -406,6 +410,63 @@ export class AWSService {
       recordValue: verificationToken,
       purpose: 'verification' as const,
     };
+  }
+
+  async createConfigurationSet(name: string, snsTopicArn?: string, openTracking = true, clickTracking = true): Promise<void> {
+    const sesClient = this.ensureInitialized();
+
+    const createCommand = new CreateConfigurationSetCommand({
+      ConfigurationSet: {
+        Name: name,
+      },
+    });
+
+    await sesClient.send(createCommand);
+
+    if (snsTopicArn) {
+      const eventTypes: string[] = ['bounce', 'complaint', 'delivery', 'send', 'reject'];
+      
+      if (openTracking) {
+        eventTypes.push('open');
+      }
+      
+      if (clickTracking) {
+        eventTypes.push('click');
+      }
+
+      const eventCommand = new CreateConfigurationSetEventDestinationCommand({
+        ConfigurationSetName: name,
+        EventDestination: {
+          Name: `${name}-events`,
+          Enabled: true,
+          MatchingEventTypes: eventTypes,
+          SNSDestination: {
+            TopicARN: snsTopicArn,
+          },
+        },
+      });
+
+      await sesClient.send(eventCommand);
+    }
+  }
+
+  async listConfigurationSets(): Promise<string[]> {
+    const sesClient = this.ensureInitialized();
+
+    const command = new ListConfigurationSetsCommand({});
+    const response = await sesClient.send(command);
+
+    return response.ConfigurationSets?.map(cs => cs.Name).filter(Boolean) as string[] || [];
+  }
+
+  async deleteConfigurationSet(name: string): Promise<void> {
+    const sesClient = this.ensureInitialized();
+
+    const command = new DeleteConfigurationSetCommand({
+      ConfigurationSetName: name,
+    });
+
+    await sesClient.send(command);
   }
 }
 
