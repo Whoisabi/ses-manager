@@ -10,7 +10,7 @@ import {
   insertEmailTemplateSchema,
   insertRecipientListSchema,
   insertEmailCampaignSchema 
-} from "@shared/schema";
+} from "@shared/types";
 import { z } from "zod";
 import multer from 'multer';
 import csvParser from 'csv-parser';

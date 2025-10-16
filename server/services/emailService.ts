@@ -1,7 +1,7 @@
 import { storage } from '../storage';
 import { awsService } from './awsService';
 import { randomUUID } from 'crypto';
-import type { InsertEmailSend } from '@shared/schema';
+import type { InsertEmailSend } from '@shared/types';
 
 export interface SendSingleEmailRequest {
   to: string;

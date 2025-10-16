@@ -1,15 +1,4 @@
 import {
-  users,
-  awsCredentials,
-  emailTemplates,
-  recipientLists,
-  recipients,
-  emailCampaigns,
-  emailSends,
-  emailTrackingEvents,
-  domains,
-  dnsRecords,
-  bounceComplaintEvents,
   type User,
   type UpsertUser,
   type AwsCredentials,
@@ -33,7 +22,7 @@ import {
   type BounceComplaintEvent,
   type InsertBounceComplaintEvent,
   insertUserSchema,
-} from "@shared/schema";
+} from "@shared/types";
 import { prisma } from "./db";
 import session from "express-session";
 import { z } from "zod";
