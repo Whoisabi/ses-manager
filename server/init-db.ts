@@ -9,13 +9,13 @@ async function fixDatabaseSchema(prisma: PrismaClient) {
   
   try {
     // Check if tables need renaming (CamelCase to lowercase)
-    const { rows: camelCaseTables } = await prisma.$queryRawUnsafe<any>(`
+    const camelCaseTables = await prisma.$queryRawUnsafe<any[]>(`
       SELECT table_name FROM information_schema.tables 
       WHERE table_schema = 'public' 
       AND table_name IN ('User', 'AwsCredential', 'EmailTemplate', 'RecipientList', 'Recipient', 'EmailCampaign', 'EmailSend', 'EmailTrackingEvent', 'Session')
     `);
     
-    if (camelCaseTables.length > 0) {
+    if (camelCaseTables && camelCaseTables.length > 0) {
       console.log('⚠️  Found CamelCase tables, renaming to lowercase...');
       
       await prisma.$executeRawUnsafe(`ALTER TABLE IF EXISTS "User" RENAME TO users`);
@@ -32,12 +32,12 @@ async function fixDatabaseSchema(prisma: PrismaClient) {
     }
     
     // Check and add missing user_id column to email_sends
-    const { rows: emailSendsColumns } = await prisma.$queryRawUnsafe<any>(`
+    const emailSendsColumns = await prisma.$queryRawUnsafe<any[]>(`
       SELECT column_name FROM information_schema.columns 
       WHERE table_name = 'email_sends' AND column_name = 'user_id'
     `);
     
-    if (emailSendsColumns.length === 0) {
+    if (emailSendsColumns && emailSendsColumns.length === 0) {
       console.log('⚠️  Adding missing user_id column to email_sends...');
       await prisma.$executeRawUnsafe(`ALTER TABLE email_sends ADD COLUMN user_id VARCHAR`);
       await prisma.$executeRawUnsafe(`ALTER TABLE email_sends ADD CONSTRAINT email_sends_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE`);
@@ -45,12 +45,12 @@ async function fixDatabaseSchema(prisma: PrismaClient) {
     }
     
     // Make campaign_id nullable in email_sends
-    const { rows: campaignIdInfo } = await prisma.$queryRawUnsafe<any>(`
+    const campaignIdInfo = await prisma.$queryRawUnsafe<any[]>(`
       SELECT is_nullable FROM information_schema.columns 
       WHERE table_name = 'email_sends' AND column_name = 'campaign_id'
     `);
     
-    if (campaignIdInfo.length > 0 && campaignIdInfo[0].is_nullable === 'NO') {
+    if (campaignIdInfo && campaignIdInfo.length > 0 && campaignIdInfo[0].is_nullable === 'NO') {
       console.log('⚠️  Making campaign_id nullable in email_sends...');
       await prisma.$executeRawUnsafe(`ALTER TABLE email_sends DROP CONSTRAINT IF EXISTS "EmailSend_campaign_id_fkey"`);
       await prisma.$executeRawUnsafe(`ALTER TABLE email_sends DROP CONSTRAINT IF EXISTS "email_sends_campaign_id_fkey"`);
@@ -60,12 +60,12 @@ async function fixDatabaseSchema(prisma: PrismaClient) {
     }
     
     // Create missing tables if they don't exist
-    const { rows: domainTable } = await prisma.$queryRawUnsafe<any>(`
+    const domainTable = await prisma.$queryRawUnsafe<any[]>(`
       SELECT table_name FROM information_schema.tables 
       WHERE table_schema = 'public' AND table_name = 'domains'
     `);
     
-    if (domainTable.length === 0) {
+    if (domainTable && domainTable.length === 0) {
       console.log('⚠️  Creating missing domains table...');
       await prisma.$executeRawUnsafe(`
         CREATE TABLE domains (
@@ -81,12 +81,12 @@ async function fixDatabaseSchema(prisma: PrismaClient) {
       console.log('✅ Created domains table');
     }
     
-    const { rows: dnsRecordsTable } = await prisma.$queryRawUnsafe<any>(`
+    const dnsRecordsTable = await prisma.$queryRawUnsafe<any[]>(`
       SELECT table_name FROM information_schema.tables 
       WHERE table_schema = 'public' AND table_name = 'dns_records'
     `);
     
-    if (dnsRecordsTable.length === 0) {
+    if (dnsRecordsTable && dnsRecordsTable.length === 0) {
       console.log('⚠️  Creating missing dns_records table...');
       await prisma.$executeRawUnsafe(`
         CREATE TABLE dns_records (
@@ -102,12 +102,12 @@ async function fixDatabaseSchema(prisma: PrismaClient) {
       console.log('✅ Created dns_records table');
     }
     
-    const { rows: bounceComplaintTable } = await prisma.$queryRawUnsafe<any>(`
+    const bounceComplaintTable = await prisma.$queryRawUnsafe<any[]>(`
       SELECT table_name FROM information_schema.tables 
       WHERE table_schema = 'public' AND table_name = 'bounce_complaint_events'
     `);
     
-    if (bounceComplaintTable.length === 0) {
+    if (bounceComplaintTable && bounceComplaintTable.length === 0) {
       console.log('⚠️  Creating missing bounce_complaint_events table...');
       await prisma.$executeRawUnsafe(`
         CREATE TABLE bounce_complaint_events (
