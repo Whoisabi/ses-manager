@@ -15,10 +15,6 @@ localPort = 5000
 externalPort = 80
 
 [[ports]]
-localPort = 35999
-externalPort = 4200
-
-[[ports]]
 localPort = 36973
 externalPort = 3001
 
@@ -62,5 +58,5 @@ outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npm run dev"
+args = "npx tsx server/init-db.ts && npm run dev"
 waitForPort = 5000
