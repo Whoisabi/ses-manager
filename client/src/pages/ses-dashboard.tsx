@@ -48,9 +48,7 @@ export default function SESDashboard() {
 
   const enableTrackingMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest("/api/tracking/enable", {
-        method: "POST",
-      });
+      return await apiRequest("POST", "/api/tracking/enable", {});
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/tracking/config"] });
@@ -70,9 +68,7 @@ export default function SESDashboard() {
 
   const disableTrackingMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest("/api/tracking/disable", {
-        method: "POST",
-      });
+      return await apiRequest("POST", "/api/tracking/disable", {});
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/tracking/config"] });

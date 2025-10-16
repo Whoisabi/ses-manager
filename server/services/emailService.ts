@@ -45,11 +45,17 @@ export class EmailService {
   async sendSingleEmail(userId: string, request: SendSingleEmailRequest): Promise<string> {
     await awsService.initialize(userId);
 
-    // Add tracking pixel to content
+    // Pre-generate IDs for tracking
+    const emailSendId = randomUUID();
     const trackingPixelId = randomUUID();
     const baseUrl = this.getBaseUrl();
+    
+    // Add click tracking to links using the pre-generated ID
+    let contentWithClickTracking = this.addClickTracking(request.content, emailSendId);
+    
+    // Add tracking pixel
     const trackingPixel = `<img src="${baseUrl}/api/tracking/pixel/${trackingPixelId}" width="1" height="1" style="display:none;" alt="" />`;
-    const contentWithTracking = request.content + trackingPixel;
+    const contentWithTracking = contentWithClickTracking + trackingPixel;
 
     try {
       const messageId = await awsService.sendEmail({
@@ -59,8 +65,9 @@ export class EmailService {
         from: request.from,
       });
 
-      // Record the email send
+      // Record the email send with the pre-generated ID
       const emailSend: InsertEmailSend = {
+        id: emailSendId,
         campaignId: request.campaignId,
         recipientEmail: request.to,
         subject: request.subject,
@@ -77,8 +84,9 @@ export class EmailService {
     } catch (error) {
       console.error('Failed to send email:', error);
       
-      // Record the failed send
+      // Record the failed send with the same ID
       const emailSend: InsertEmailSend = {
+        id: emailSendId,
         campaignId: request.campaignId,
         recipientEmail: request.to,
         subject: request.subject,
@@ -113,9 +121,10 @@ export class EmailService {
     for (const recipient of recipients) {
       if (!recipient.isActive) continue;
 
+      // Pre-generate IDs for tracking
+      const emailSendId = randomUUID();
       const trackingPixelId = randomUUID();
       const baseUrl = this.getBaseUrl();
-      const trackingPixel = `<img src="${baseUrl}/api/tracking/pixel/${trackingPixelId}" width="1" height="1" style="display:none;" alt="" />`;
       
       // Replace template variables
       let personalizedContent = request.content;
@@ -145,7 +154,12 @@ export class EmailService {
         }
       }
 
-      const contentWithTracking = personalizedContent + trackingPixel;
+      // Add click tracking to links
+      let contentWithClickTracking = this.addClickTracking(personalizedContent, emailSendId);
+      
+      // Add tracking pixel
+      const trackingPixel = `<img src="${baseUrl}/api/tracking/pixel/${trackingPixelId}" width="1" height="1" style="display:none;" alt="" />`;
+      const contentWithTracking = contentWithClickTracking + trackingPixel;
 
       try {
         const messageId = await awsService.sendEmail({
@@ -156,6 +170,7 @@ export class EmailService {
         });
 
         emailSends.push({
+          id: emailSendId,
           campaignId: request.campaignId,
           recipientEmail: recipient.email,
           subject: personalizedSubject,
@@ -169,6 +184,7 @@ export class EmailService {
         console.error(`Failed to send email to ${recipient.email}:`, error);
         
         emailSends.push({
+          id: emailSendId,
           campaignId: request.campaignId,
           recipientEmail: recipient.email,
           subject: personalizedSubject,
