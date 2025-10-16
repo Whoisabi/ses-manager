@@ -15,7 +15,7 @@ export default function Analytics() {
   const { toast } = useToast();
   const { user, isLoading } = useAuth();
   const [timeRange, setTimeRange] = useState("7");
-  const [selectedCampaign, setSelectedCampaign] = useState<string>("");
+  const [selectedCampaign, setSelectedCampaign] = useState<string>("all");
 
   const { data: stats } = useQuery<EmailStats>({
     queryKey: ["/api/analytics/stats"],
@@ -43,7 +43,7 @@ export default function Analytics() {
   }>>({
     queryKey: ["/api/analytics/timeseries", { 
       days: parseInt(timeRange), 
-      ...(selectedCampaign && { campaignId: selectedCampaign })
+      ...(selectedCampaign !== "all" && { campaignId: selectedCampaign })
     }],
     enabled: !!user,
   });
@@ -112,7 +112,7 @@ export default function Analytics() {
                   <SelectValue placeholder="All campaigns" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All campaigns</SelectItem>
+                  <SelectItem value="all">All campaigns</SelectItem>
                   {(campaigns as any[])?.map((campaign: any) => (
                     <SelectItem key={campaign.id} value={campaign.id}>{campaign.name}</SelectItem>
                   ))}
