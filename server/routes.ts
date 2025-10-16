@@ -173,7 +173,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user!.id;
       await awsService.initialize(userId);
       const identities = await awsService.getAllIdentitiesWithStatus();
-      res.json({ identities });
+      
+      // Enrich domain identities with database information and DNS records
+      const enrichedIdentities = await Promise.all(
+        identities.map(async (identity) => {
+          if (identity.type === 'domain') {
+            const domainRecord = await storage.getDomainByName(identity.identity, userId);
+            if (domainRecord) {
+              const dnsRecords = await storage.getDnsRecords(domainRecord.id);
+              return {
+                ...identity,
+                domainId: domainRecord.id,
+                dnsRecords,
+              };
+            }
+          }
+          return identity;
+        })
+      );
+      
+      res.json({ identities: enrichedIdentities });
     } catch (error) {
       console.error("Error fetching SES identities:", error);
       const errorMessage = error instanceof Error ? error.message : "Failed to fetch identities";
