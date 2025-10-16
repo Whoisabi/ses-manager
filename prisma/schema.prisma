@@ -104,7 +104,7 @@ model EmailCampaign {
 
 model EmailSend {
   id                      String                 @id(map: "EmailSend_pkey") @default(uuid())
-  campaign_id             String
+  campaign_id             String?
   recipient_email         String
   subject                 String
   content                 String
@@ -121,7 +121,7 @@ model EmailSend {
   tracking_pixel_id       String?
   created_at              DateTime               @default(now())
   bounce_complaint_events BounceComplaintEvent[]
-  campaign                EmailCampaign          @relation(fields: [campaign_id], references: [id], onDelete: Cascade, map: "EmailSend_campaign_id_fkey")
+  campaign                EmailCampaign?         @relation(fields: [campaign_id], references: [id], onDelete: Cascade, map: "EmailSend_campaign_id_fkey")
   tracking_events         EmailTrackingEvent[]
 
   @@map("email_sends")
