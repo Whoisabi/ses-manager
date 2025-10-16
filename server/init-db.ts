@@ -53,6 +53,7 @@ async function fixDatabaseSchema(prisma: PrismaClient) {
     if (campaignIdInfo.length > 0 && campaignIdInfo[0].is_nullable === 'NO') {
       console.log('⚠️  Making campaign_id nullable in email_sends...');
       await prisma.$executeRawUnsafe(`ALTER TABLE email_sends DROP CONSTRAINT IF EXISTS "EmailSend_campaign_id_fkey"`);
+      await prisma.$executeRawUnsafe(`ALTER TABLE email_sends DROP CONSTRAINT IF EXISTS "email_sends_campaign_id_fkey"`);
       await prisma.$executeRawUnsafe(`ALTER TABLE email_sends ALTER COLUMN campaign_id DROP NOT NULL`);
       await prisma.$executeRawUnsafe(`ALTER TABLE email_sends ADD CONSTRAINT email_sends_campaign_id_fkey FOREIGN KEY (campaign_id) REFERENCES email_campaigns(id) ON DELETE CASCADE`);
       console.log('✅ Made campaign_id nullable in email_sends');
@@ -135,8 +136,11 @@ async function initDatabase() {
   try {
     const prisma = new PrismaClient();
     
+    // Always run schema fixes on every startup
+    await fixDatabaseSchema(prisma);
+    
     await prisma.$queryRaw`SELECT 1 FROM users LIMIT 1`;
-    console.log('✅ Database is already initialized');
+    console.log('✅ Database is ready');
     await prisma.$disconnect();
   } catch (error: any) {
     if (error.code === 'P2021' || error.message?.includes('does not exist')) {
