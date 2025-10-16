@@ -449,20 +449,46 @@ export class DatabaseStorage implements IStorage {
     if (!list) {
       throw new Error('Recipient list not found');
     }
-    const recs = await prisma.recipient.findMany({
-      where: { list_id: listId },
-      orderBy: { created_at: 'desc' },
-    });
-    return recs.map(r => ({
-      id: r.id,
-      listId: r.list_id,
-      email: r.email,
-      firstName: r.first_name,
-      lastName: r.last_name,
-      metadata: r.metadata,
-      isActive: r.is_active,
-      createdAt: r.created_at,
-    }));
+    
+    // Add retry logic for database connection issues
+    let retries = 3;
+    let lastError;
+    
+    while (retries > 0) {
+      try {
+        const recs = await prisma.recipient.findMany({
+          where: { list_id: listId },
+          orderBy: { created_at: 'desc' },
+        });
+        return recs.map(r => ({
+          id: r.id,
+          listId: r.list_id,
+          email: r.email,
+          firstName: r.first_name,
+          lastName: r.last_name,
+          metadata: r.metadata,
+          isActive: r.is_active,
+          createdAt: r.created_at,
+        }));
+      } catch (error: any) {
+        lastError = error;
+        retries--;
+        
+        // Check if it's a connection error
+        if (error.message?.includes('terminating connection') || error.code === '57P01') {
+          console.log(`Database connection lost, retrying... (${retries} attempts left)`);
+          // Wait a bit before retrying
+          await new Promise(resolve => setTimeout(resolve, 500));
+          continue;
+        }
+        
+        // If it's not a connection error, throw immediately
+        throw error;
+      }
+    }
+    
+    // If we've exhausted retries, throw the last error
+    throw lastError;
   }
 
   async createRecipients(recipientData: InsertRecipient[]): Promise<Recipient[]> {
