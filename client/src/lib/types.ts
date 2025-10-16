@@ -55,3 +55,23 @@ export interface RecipientListForm {
   name: string;
   description: string;
 }
+
+export interface DnsRecord {
+  id: string;
+  recordType: string;
+  recordName: string;
+  recordValue: string;
+  purpose: string;
+}
+
+export interface SESIdentity {
+  identity: string;
+  type: 'email' | 'domain';
+  verified: boolean;
+  domainId?: string;
+  dnsRecords?: DnsRecord[];
+}
+
+export interface SESIdentitiesResponse {
+  identities: SESIdentity[];
+}

@@ -12,7 +12,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import RichTextEditor from "./rich-text-editor";
-import type { QuickSendForm } from "@/lib/types";
+import type { QuickSendForm, SESIdentitiesResponse, SESIdentity } from "@/lib/types";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -45,7 +45,7 @@ export default function EmailComposer({ showHeader = true }: EmailComposerProps)
   });
 
   // Fetch verified identities (domains and emails)
-  const { data: identities, isLoading: loadingIdentities } = useQuery({
+  const { data: identities, isLoading: loadingIdentities } = useQuery<SESIdentitiesResponse>({
     queryKey: ["/api/ses/identities"],
   });
 
@@ -89,9 +89,9 @@ export default function EmailComposer({ showHeader = true }: EmailComposerProps)
   };
 
   // Get verified domains and emails
-  const verifiedIdentities = (identities as any[])?.filter((i: any) => i.verified) || [];
-  const verifiedDomains = verifiedIdentities.filter((i: any) => !i.identity.includes("@"));
-  const verifiedEmails = verifiedIdentities.filter((i: any) => i.identity.includes("@"));
+  const verifiedIdentities: SESIdentity[] = identities?.identities?.filter(i => i.verified) || [];
+  const verifiedDomains = verifiedIdentities.filter(i => !i.identity.includes("@"));
+  const verifiedEmails = verifiedIdentities.filter(i => i.identity.includes("@"));
 
   // Handle custom domain email construction
   const handleCustomDomainChange = (domain: string) => {
@@ -143,30 +143,35 @@ export default function EmailComposer({ showHeader = true }: EmailComposerProps)
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {verifiedEmails.length > 0 && (
+                      {loadingIdentities && (
+                        <div className="px-2 py-6 text-center text-sm text-muted-foreground">
+                          Loading verified identities...
+                        </div>
+                      )}
+                      {!loadingIdentities && verifiedEmails.length > 0 && (
                         <>
                           <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Verified Emails</div>
-                          {verifiedEmails.map((identity: any) => (
+                          {verifiedEmails.map((identity) => (
                             <SelectItem key={identity.identity} value={identity.identity}>
                               {identity.identity}
                             </SelectItem>
                           ))}
                         </>
                       )}
-                      {verifiedDomains.length > 0 && verifiedEmails.length > 0 && (
+                      {!loadingIdentities && verifiedDomains.length > 0 && verifiedEmails.length > 0 && (
                         <div className="h-px bg-border my-1" />
                       )}
-                      {verifiedDomains.length > 0 && (
+                      {!loadingIdentities && verifiedDomains.length > 0 && (
                         <>
                           <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Verified Domains (any email@domain)</div>
-                          {verifiedDomains.map((identity: any) => (
+                          {verifiedDomains.map((identity) => (
                             <SelectItem key={identity.identity} value={`no-reply@${identity.identity}`}>
                               Any email @ {identity.identity}
                             </SelectItem>
                           ))}
                         </>
                       )}
-                      {verifiedIdentities.length === 0 && (
+                      {!loadingIdentities && verifiedIdentities.length === 0 && (
                         <div className="px-2 py-6 text-center text-sm text-muted-foreground">
                           No verified emails or domains found. Please verify your domain first.
                         </div>
@@ -198,11 +203,21 @@ export default function EmailComposer({ showHeader = true }: EmailComposerProps)
                           <SelectValue placeholder={verifiedDomains.length === 0 ? "No domains" : "Select..."} />
                         </SelectTrigger>
                         <SelectContent>
-                          {verifiedDomains.map((identity: any) => (
-                            <SelectItem key={identity.identity} value={identity.identity}>
-                              {identity.identity}
-                            </SelectItem>
-                          ))}
+                          {loadingIdentities ? (
+                            <div className="px-2 py-4 text-center text-sm text-muted-foreground">
+                              Loading...
+                            </div>
+                          ) : verifiedDomains.length === 0 ? (
+                            <div className="px-2 py-4 text-center text-sm text-muted-foreground">
+                              No verified domains
+                            </div>
+                          ) : (
+                            verifiedDomains.map((identity) => (
+                              <SelectItem key={identity.identity} value={identity.identity}>
+                                {identity.identity}
+                              </SelectItem>
+                            ))
+                          )}
                         </SelectContent>
                       </Select>
                     </div>
