@@ -1429,7 +1429,7 @@ export class DatabaseStorage implements IStorage {
         email_message_id, recipient_email, processing_status, 
         error_message, raw_payload
       ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9
+        $1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb
       ) RETURNING id
     `, 
       log.messageType, 
