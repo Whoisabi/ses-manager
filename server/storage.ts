@@ -705,9 +705,27 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateEmailSend(id: string, updates: Partial<InsertEmailSend>): Promise<EmailSend> {
+    // Convert camelCase to snake_case for Prisma
+    const updateData: any = {};
+    if (updates.recipientEmail !== undefined) updateData.recipient_email = updates.recipientEmail;
+    if (updates.subject !== undefined) updateData.subject = updates.subject;
+    if (updates.content !== undefined) updateData.content = updates.content;
+    if (updates.status !== undefined) updateData.status = updates.status;
+    if (updates.messageId !== undefined) updateData.message_id = updates.messageId;
+    if (updates.sentAt !== undefined) updateData.sent_at = updates.sentAt;
+    if (updates.deliveredAt !== undefined) updateData.delivered_at = updates.deliveredAt;
+    if (updates.openedAt !== undefined) updateData.opened_at = updates.openedAt;
+    if (updates.clickedAt !== undefined) updateData.clicked_at = updates.clickedAt;
+    if (updates.bouncedAt !== undefined) updateData.bounced_at = updates.bouncedAt;
+    if (updates.complainedAt !== undefined) updateData.complained_at = updates.complainedAt;
+    if (updates.bounceReason !== undefined) updateData.bounce_reason = updates.bounceReason;
+    if (updates.complaintReason !== undefined) updateData.complaint_reason = updates.complaintReason;
+    if (updates.trackingPixelId !== undefined) updateData.tracking_pixel_id = updates.trackingPixelId;
+    if (updates.campaignId !== undefined) updateData.campaign_id = updates.campaignId;
+    
     const e = await prisma.emailSend.update({
       where: { id },
-      data: updates,
+      data: updateData,
     });
     return {
       id: e.id,
