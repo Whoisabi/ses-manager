@@ -92,10 +92,10 @@ export default function EmailComposer({ showHeader = true }: EmailComposerProps)
   });
 
   const handleQuickSend = (data: QuickSendForm) => {
-    // Clean up configuration set - don't send if empty or "none"
+    // Clean up configuration set - don't send if "no-tracking"
     const cleanedData = {
       ...data,
-      configurationSetName: data.configurationSetName && data.configurationSetName !== "none" 
+      configurationSetName: data.configurationSetName && data.configurationSetName !== "no-tracking" 
         ? data.configurationSetName 
         : undefined,
     };
@@ -331,7 +331,7 @@ export default function EmailComposer({ showHeader = true }: EmailComposerProps)
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  <SelectItem value="" data-testid="select-item-none">No tracking</SelectItem>
+                  <SelectItem value="no-tracking" data-testid="select-item-none">No tracking</SelectItem>
                   {!loadingConfigSets && (configSets as any[])?.map((configSet: any) => (
                     <SelectItem 
                       key={configSet.id} 

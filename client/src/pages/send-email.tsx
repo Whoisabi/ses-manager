@@ -126,10 +126,10 @@ export default function SendEmail() {
   };
 
   const handleBulkSend = (data: BulkSendForm) => {
-    // Clean up configuration set - don't send if empty or "none"
+    // Clean up configuration set - don't send if "no-tracking"
     const cleanedData = {
       ...data,
-      configurationSetName: data.configurationSetName && data.configurationSetName !== "none" 
+      configurationSetName: data.configurationSetName && data.configurationSetName !== "no-tracking" 
         ? data.configurationSetName 
         : undefined,
     };
@@ -472,7 +472,7 @@ export default function SendEmail() {
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                  <SelectItem value="" data-testid="select-item-bulk-none">No tracking</SelectItem>
+                                  <SelectItem value="no-tracking" data-testid="select-item-bulk-none">No tracking</SelectItem>
                                   {!loadingConfigSets && (configSets as any[])?.map((configSet: any) => (
                                     <SelectItem 
                                       key={configSet.id} 
