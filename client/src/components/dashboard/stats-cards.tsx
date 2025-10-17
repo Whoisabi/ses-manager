@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Mail, CheckCircle, Eye, AlertTriangle, TrendingUp, TrendingDown } from "lucide-react";
+import { Mail, CheckCircle, MousePointer, AlertTriangle, TrendingUp, TrendingDown } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import type { EmailStats } from "@/lib/types";
 
@@ -9,7 +9,7 @@ export default function StatsCards() {
   });
 
   const deliveryRate = stats?.totalSent ? ((stats.totalDelivered / stats.totalSent) * 100).toFixed(1) : "0";
-  const openRate = stats?.totalDelivered ? ((stats.totalOpened / stats.totalDelivered) * 100).toFixed(1) : "0";
+  const clickRate = stats?.totalDelivered ? ((stats.totalClicked / stats.totalDelivered) * 100).toFixed(1) : "0";
   const bounceRate = stats?.totalSent ? ((stats.totalBounced / stats.totalSent) * 100).toFixed(1) : "0";
 
   const statsCards = [
@@ -18,7 +18,7 @@ export default function StatsCards() {
       value: stats?.totalSent?.toLocaleString() || "0",
       icon: Mail,
       iconColor: "bg-blue-100 text-blue-600",
-      trend: "+12% from last month",
+      trend: `${stats?.totalSent || 0} emails sent`,
       trendDirection: "up" as const,
       testId: "stat-total-sent"
     },
@@ -32,13 +32,13 @@ export default function StatsCards() {
       testId: "stat-delivered"
     },
     {
-      title: "Opens",
-      value: stats?.totalOpened?.toLocaleString() || "0",
-      icon: Eye,
-      iconColor: "bg-purple-100 text-purple-600",
-      trend: `${openRate}% open rate`,
+      title: "Clicks",
+      value: stats?.totalClicked?.toLocaleString() || "0",
+      icon: MousePointer,
+      iconColor: "bg-orange-100 text-orange-600",
+      trend: `${clickRate}% click rate`,
       trendDirection: "up" as const,
-      testId: "stat-opens"
+      testId: "stat-clicks"
     },
     {
       title: "Bounces",
