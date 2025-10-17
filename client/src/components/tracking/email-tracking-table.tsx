@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Download, Eye } from "lucide-react";
+import { Download, Eye, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import type { EmailSendRecord } from "@/lib/types";
 
@@ -38,6 +38,13 @@ export default function EmailTrackingTable() {
       hour: '2-digit', 
       minute: '2-digit' 
     });
+  };
+
+  const getTrackingIcon = (timestamp?: string, type: string = 'check') => {
+    if (timestamp) {
+      return <CheckCircle2 className="w-4 h-4 text-green-600" data-testid={`icon-${type}-yes`} />;
+    }
+    return <XCircle className="w-4 h-4 text-gray-300" data-testid={`icon-${type}-no`} />;
   };
 
   return (
@@ -77,9 +84,10 @@ export default function EmailTrackingTable() {
                     <th className="text-left py-3 px-4 font-medium text-muted-foreground">Subject</th>
                     <th className="text-left py-3 px-4 font-medium text-muted-foreground">Recipient</th>
                     <th className="text-left py-3 px-4 font-medium text-muted-foreground">Status</th>
+                    <th className="text-center py-3 px-4 font-medium text-muted-foreground">Delivered</th>
+                    <th className="text-center py-3 px-4 font-medium text-muted-foreground">Opened</th>
+                    <th className="text-center py-3 px-4 font-medium text-muted-foreground">Clicked</th>
                     <th className="text-left py-3 px-4 font-medium text-muted-foreground">Sent</th>
-                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">Opened</th>
-                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -102,24 +110,28 @@ export default function EmailTrackingTable() {
                       <td className="py-3 px-4" data-testid={`tracking-status-${send.id}`}>
                         {getStatusBadge(send.status)}
                       </td>
+                      <td className="py-3 px-4 text-center" data-testid={`tracking-delivered-${send.id}`}>
+                        <div className="flex items-center justify-center gap-1">
+                          {getTrackingIcon(send.deliveredAt, 'delivered')}
+                          {send.deliveredAt && <span className="text-xs text-muted-foreground">{formatDate(send.deliveredAt)}</span>}
+                        </div>
+                      </td>
+                      <td className="py-3 px-4 text-center" data-testid={`tracking-opened-${send.id}`}>
+                        <div className="flex items-center justify-center gap-1">
+                          {getTrackingIcon(send.openedAt, 'opened')}
+                          {send.openedAt && <span className="text-xs text-muted-foreground">{formatDate(send.openedAt)}</span>}
+                        </div>
+                      </td>
+                      <td className="py-3 px-4 text-center" data-testid={`tracking-clicked-${send.id}`}>
+                        <div className="flex items-center justify-center gap-1">
+                          {getTrackingIcon(send.clickedAt, 'clicked')}
+                          {send.clickedAt && <span className="text-xs text-muted-foreground">{formatDate(send.clickedAt)}</span>}
+                        </div>
+                      </td>
                       <td className="py-3 px-4">
                         <p className="text-muted-foreground text-sm" data-testid={`tracking-sent-${send.id}`}>
                           {formatDate(send.sentAt)}
                         </p>
-                      </td>
-                      <td className="py-3 px-4">
-                        <p className="text-muted-foreground text-sm" data-testid={`tracking-opened-${send.id}`}>
-                          {send.openedAt ? formatDate(send.openedAt) : "Not opened"}
-                        </p>
-                      </td>
-                      <td className="py-3 px-4">
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          data-testid={`tracking-view-${send.id}`}
-                        >
-                          <Eye className="w-4 h-4" />
-                        </Button>
                       </td>
                     </tr>
                   ))}
