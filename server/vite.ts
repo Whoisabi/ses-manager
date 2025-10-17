@@ -20,12 +20,17 @@ export function log(message: string, source = "express") {
 }
 
 export async function setupVite(app: Express, server: Server) {
+  // Detect if running on Replit
+  const isReplit = process.env.REPL_ID !== undefined || process.env.REPLIT_DOMAINS !== undefined;
+  
   const serverOptions = {
     middlewareMode: true,
-    hmr: { 
+    hmr: isReplit ? { 
       server,
       clientPort: 443,
       port: 5000
+    } : {
+      server
     },
     allowedHosts: true as const,
   };

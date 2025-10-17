@@ -26,8 +26,20 @@ const getOidcConfig = memoize(
 
 export function getSession() {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
+  
+  // Generate a development session secret if not provided
+  const sessionSecret = process.env.SESSION_SECRET || 
+    (process.env.NODE_ENV === 'development' 
+      ? 'dev-secret-change-in-production-' + Math.random().toString(36)
+      : (() => { throw new Error('SESSION_SECRET is required in production'); })()
+    );
+  
+  if (!process.env.SESSION_SECRET && process.env.NODE_ENV === 'development') {
+    console.warn('⚠️  Using auto-generated SESSION_SECRET for development. Set SESSION_SECRET in .env for production.');
+  }
+  
   return session({
-    secret: process.env.SESSION_SECRET!,
+    secret: sessionSecret,
     resave: false,
     saveUninitialized: false,
     cookie: {
@@ -37,7 +49,6 @@ export function getSession() {
       maxAge: sessionTtl,
     },
   });
-  // Use default memory store for development
 }
 
 function updateUserSession(
