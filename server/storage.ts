@@ -142,6 +142,24 @@ export interface IStorage {
   getConfigurationSet(name: string, userId: string): Promise<ConfigurationSet | undefined>;
   createConfigurationSet(configSet: InsertConfigurationSet): Promise<ConfigurationSet>;
   deleteConfigurationSet(name: string, userId: string): Promise<void>;
+
+  // Webhook Log operations
+  createWebhookLog(log: {
+    messageType: string;
+    messageId?: string | null;
+    topicArn?: string | null;
+    eventType?: string | null;
+    emailMessageId?: string | null;
+    recipientEmail?: string | null;
+    processingStatus: string;
+    errorMessage?: string | null;
+    rawPayload: any;
+  }): Promise<{ id: string }>;
+  updateWebhookLog(id: string, updates: {
+    processingStatus?: string;
+    errorMessage?: string | null;
+  }): Promise<void>;
+  getWebhookLogs(limit?: number): Promise<any[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1391,6 +1409,81 @@ export class DatabaseStorage implements IStorage {
         user_id: userId,
       },
     });
+  }
+
+  // Webhook Log operations
+  async createWebhookLog(log: {
+    messageType: string;
+    messageId?: string | null;
+    topicArn?: string | null;
+    eventType?: string | null;
+    emailMessageId?: string | null;
+    recipientEmail?: string | null;
+    processingStatus: string;
+    errorMessage?: string | null;
+    rawPayload: any;
+  }): Promise<{ id: string }> {
+    const result = await prisma.$queryRawUnsafe<any[]>(`
+      INSERT INTO webhook_logs (
+        message_type, message_id, topic_arn, event_type, 
+        email_message_id, recipient_email, processing_status, 
+        error_message, raw_payload
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, $9
+      ) RETURNING id
+    `, 
+      log.messageType, 
+      log.messageId || null, 
+      log.topicArn || null, 
+      log.eventType || null, 
+      log.emailMessageId || null, 
+      log.recipientEmail || null, 
+      log.processingStatus, 
+      log.errorMessage || null, 
+      JSON.stringify(log.rawPayload)
+    );
+    
+    return { id: result[0].id };
+  }
+
+  async updateWebhookLog(id: string, updates: {
+    processingStatus?: string;
+    errorMessage?: string | null;
+  }): Promise<void> {
+    const setClauses: string[] = [];
+    const values: any[] = [];
+    let paramIndex = 1;
+
+    if (updates.processingStatus !== undefined) {
+      setClauses.push(`processing_status = $${paramIndex}`);
+      values.push(updates.processingStatus);
+      paramIndex++;
+    }
+
+    if (updates.errorMessage !== undefined) {
+      setClauses.push(`error_message = $${paramIndex}`);
+      values.push(updates.errorMessage);
+      paramIndex++;
+    }
+
+    if (setClauses.length > 0) {
+      values.push(id);
+      await prisma.$executeRawUnsafe(`
+        UPDATE webhook_logs 
+        SET ${setClauses.join(', ')} 
+        WHERE id = $${paramIndex}
+      `, ...values);
+    }
+  }
+
+  async getWebhookLogs(limit: number = 100): Promise<any[]> {
+    const results = await prisma.$queryRawUnsafe<any[]>(`
+      SELECT * FROM webhook_logs 
+      ORDER BY created_at DESC 
+      LIMIT $1
+    `, limit);
+    
+    return results;
   }
 }
 

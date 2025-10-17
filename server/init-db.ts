@@ -188,6 +188,37 @@ async function fixDatabaseSchema(prisma: PrismaClient) {
       console.log('✅ Created tracking_config table');
     }
     
+    const webhookLogsTable = await prisma.$queryRawUnsafe<any[]>(`
+      SELECT table_name FROM information_schema.tables 
+      WHERE table_schema = 'public' AND table_name = 'webhook_logs'
+    `);
+    
+    if (webhookLogsTable && webhookLogsTable.length === 0) {
+      console.log('⚠️  Creating missing webhook_logs table...');
+      await prisma.$executeRawUnsafe(`
+        CREATE TABLE webhook_logs (
+          id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          message_type VARCHAR NOT NULL,
+          message_id VARCHAR,
+          topic_arn VARCHAR,
+          event_type VARCHAR,
+          email_message_id VARCHAR,
+          recipient_email VARCHAR,
+          processing_status VARCHAR NOT NULL DEFAULT 'received',
+          error_message TEXT,
+          raw_payload JSONB NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      await prisma.$executeRawUnsafe(`
+        CREATE INDEX webhook_logs_email_message_id_idx ON webhook_logs(email_message_id)
+      `);
+      await prisma.$executeRawUnsafe(`
+        CREATE INDEX webhook_logs_created_at_idx ON webhook_logs(created_at)
+      `);
+      console.log('✅ Created webhook_logs table');
+    }
+    
     console.log('✅ Database schema fixes complete');
   } catch (error) {
     console.error('⚠️  Error fixing schema:', error);

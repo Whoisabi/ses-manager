@@ -878,11 +878,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // SNS webhook endpoint (public - receives SNS notifications)
   app.post('/api/sns/notifications', express.raw({ type: 'text/plain' }), async (req: Request, res: Response) => {
+    let webhookLogId: string | undefined;
+    
     try {
       const body = req.body.toString();
       const message = JSON.parse(body);
 
-      console.log('SNS notification received:', message.Type);
+      console.log('📨 SNS notification received:', message.Type);
+
+      // Log webhook message to database for debugging
+      let notification: any = null;
+      let eventType: string | null = null;
+      let emailMessageId: string | null = null;
+      let recipientEmail: string | null = null;
+
+      try {
+        if (message.Type === 'Notification' && message.Message) {
+          notification = JSON.parse(message.Message);
+          eventType = notification.eventType || notification.notificationType;
+          emailMessageId = notification.mail?.messageId;
+          
+          // Extract recipient email based on event type
+          if (notification.bounce?.bouncedRecipients?.[0]?.emailAddress) {
+            recipientEmail = notification.bounce.bouncedRecipients[0].emailAddress;
+          } else if (notification.complaint?.complainedRecipients?.[0]?.emailAddress) {
+            recipientEmail = notification.complaint.complainedRecipients[0].emailAddress;
+          } else if (notification.delivery?.recipients?.[0]) {
+            recipientEmail = notification.delivery.recipients[0];
+          } else if (notification.mail?.destination?.[0]) {
+            recipientEmail = notification.mail.destination[0];
+          }
+        }
+      } catch (e) {
+        // Non-JSON message, will be logged with raw payload
+      }
+
+      const webhookLog = await storage.createWebhookLog({
+        messageType: message.Type,
+        messageId: message.MessageId,
+        topicArn: message.TopicArn,
+        eventType,
+        emailMessageId,
+        recipientEmail,
+        processingStatus: 'received',
+        rawPayload: message,
+      });
+      
+      webhookLogId = webhookLog.id;
+      console.log(`📝 Webhook logged with ID: ${webhookLogId}`);
 
       // Validate SNS message signature
       const validator = new MessageValidator();
@@ -890,7 +933,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await new Promise((resolve, reject) => {
         validator.validate(message, (err: Error | null, validatedMessage: any) => {
           if (err) {
-            console.error('SNS signature validation failed:', err);
+            console.error('❌ SNS signature validation failed:', err);
             reject(err);
           } else {
             resolve(validatedMessage);
@@ -898,47 +941,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       });
 
-      console.log('SNS signature validated successfully');
+      console.log('✅ SNS signature validated successfully');
+      await storage.updateWebhookLog(webhookLogId, { processingStatus: 'validated' });
 
       // Handle subscription confirmation
       if (message.Type === 'SubscriptionConfirmation') {
-        console.log('Confirming SNS subscription:', message.SubscribeURL);
+        console.log('🔗 Confirming SNS subscription:', message.SubscribeURL);
         
         // Fetch the subscription URL to confirm
         const https = await import('https');
         https.get(message.SubscribeURL, (response) => {
-          console.log('Subscription confirmed:', response.statusCode);
+          console.log('✅ Subscription confirmed:', response.statusCode);
         });
 
+        await storage.updateWebhookLog(webhookLogId, { processingStatus: 'subscription_confirmed' });
         return res.status(200).send('Subscription confirmed');
       }
 
       // Handle notifications
       if (message.Type === 'Notification') {
         // Try to parse message as JSON, if it fails it's likely a test notification
-        let notification;
-        try {
-          notification = JSON.parse(message.Message);
-        } catch (e) {
-          console.log('SNS test/non-JSON notification received:', message.Message);
+        if (!notification) {
+          console.log('⚠️  SNS test/non-JSON notification received:', message.Message);
+          await storage.updateWebhookLog(webhookLogId, { 
+            processingStatus: 'test_notification',
+            errorMessage: 'Non-JSON message content' 
+          });
           return res.status(200).send('Test notification received');
         }
         
-        // AWS SES uses eventType, not notificationType
-        const eventType = notification.eventType;
-        const messageId = notification.mail?.messageId;
-        
-        console.log(`SNS Event: ${eventType} for messageId: ${messageId}`);
+        console.log(`📧 SNS Event: ${eventType} for messageId: ${emailMessageId}`);
+        console.log(`📧 Recipient: ${recipientEmail || 'unknown'}`);
+        console.log(`📧 Full notification data:`, JSON.stringify(notification, null, 2));
 
-        if (!messageId) {
-          console.log('No messageId in notification, skipping');
+        if (!emailMessageId) {
+          console.log('⚠️  No messageId in notification, skipping');
+          await storage.updateWebhookLog(webhookLogId, { 
+            processingStatus: 'no_message_id',
+            errorMessage: 'Missing email messageId in notification' 
+          });
           return res.status(200).send('No messageId found');
         }
 
-        const emailSend = await storage.getEmailSendByMessageId(messageId);
+        const emailSend = await storage.getEmailSendByMessageId(emailMessageId);
         
         if (!emailSend) {
-          console.log(`Email send record not found for messageId: ${messageId}`);
+          console.log(`⚠️  Email send record not found for messageId: ${emailMessageId}`);
+          await storage.updateWebhookLog(webhookLogId, { 
+            processingStatus: 'email_not_found',
+            errorMessage: `No email send record found for messageId: ${emailMessageId}` 
+          });
           return res.status(200).send('Email send record not found');
         }
 
@@ -954,6 +1006,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             eventType: 'bounce',
             eventData: notification.bounce,
           });
+          await storage.updateWebhookLog(webhookLogId, { processingStatus: 'processed' });
           console.log(`✅ Bounce recorded for email ${emailSend.id}`);
         } else if (eventType === 'Complaint') {
           await storage.updateEmailSend(emailSend.id, {
@@ -967,6 +1020,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             eventType: 'complaint',
             eventData: notification.complaint,
           });
+          await storage.updateWebhookLog(webhookLogId, { processingStatus: 'processed' });
           console.log(`✅ Complaint recorded for email ${emailSend.id}`);
         } else if (eventType === 'Delivery') {
           if (!emailSend.deliveredAt) {
@@ -980,7 +1034,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
               eventType: 'delivery',
               eventData: notification.delivery,
             });
+            await storage.updateWebhookLog(webhookLogId, { processingStatus: 'processed' });
             console.log(`✅ Delivery recorded for email ${emailSend.id}`);
+          } else {
+            await storage.updateWebhookLog(webhookLogId, { processingStatus: 'already_processed' });
           }
         } else if (eventType === 'Open') {
           if (!emailSend.openedAt) {
@@ -993,7 +1050,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
               eventType: 'open',
               eventData: notification.open,
             });
+            await storage.updateWebhookLog(webhookLogId, { processingStatus: 'processed' });
             console.log(`✅ Open recorded for email ${emailSend.id}`);
+          } else {
+            await storage.updateWebhookLog(webhookLogId, { processingStatus: 'already_processed' });
           }
         } else if (eventType === 'Click') {
           if (!emailSend.clickedAt) {
@@ -1006,21 +1066,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
               eventType: 'click',
               eventData: notification.click,
             });
+            await storage.updateWebhookLog(webhookLogId, { processingStatus: 'processed' });
             console.log(`✅ Click recorded for email ${emailSend.id}`);
+          } else {
+            await storage.updateWebhookLog(webhookLogId, { processingStatus: 'already_processed' });
           }
         } else if (eventType === 'Send') {
           // Send event is just confirmation, we already have the record
-          console.log(`Send event received for ${emailSend.id}, no action needed`);
+          await storage.updateWebhookLog(webhookLogId, { processingStatus: 'send_confirmation' });
+          console.log(`ℹ️  Send event received for ${emailSend.id}, no action needed`);
         } else {
-          console.log(`Unknown event type: ${eventType}`);
+          await storage.updateWebhookLog(webhookLogId, { 
+            processingStatus: 'unknown_event',
+            errorMessage: `Unknown event type: ${eventType}` 
+          });
+          console.log(`⚠️  Unknown event type: ${eventType}`);
         }
 
         return res.status(200).send('Notification processed');
       }
 
+      await storage.updateWebhookLog(webhookLogId, { processingStatus: 'unknown_type' });
       res.status(200).send('OK');
     } catch (error) {
-      console.error('Error processing SNS notification:', error);
+      console.error('❌ Error processing SNS notification:', error);
+      
+      // Update webhook log with error
+      if (webhookLogId) {
+        try {
+          await storage.updateWebhookLog(webhookLogId, { 
+            processingStatus: 'error',
+            errorMessage: error instanceof Error ? error.message : String(error)
+          });
+        } catch (logError) {
+          console.error('Failed to update webhook log:', logError);
+        }
+      }
       
       // Return 400 for validation errors, 500 for other errors
       if (error instanceof Error && error.message.includes('validation')) {

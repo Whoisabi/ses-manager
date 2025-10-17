@@ -226,3 +226,21 @@ model ConfigurationSet {
 
   @@map("configuration_sets")
 }
+
+model WebhookLog {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.VarChar
+  message_type     String    @db.VarChar
+  message_id       String?   @db.VarChar
+  topic_arn        String?   @db.VarChar
+  event_type       String?   @db.VarChar
+  email_message_id String?   @db.VarChar
+  recipient_email  String?   @db.VarChar
+  processing_status String   @default("received") @db.VarChar
+  error_message    String?
+  raw_payload      Json
+  created_at       DateTime? @default(now()) @db.Timestamp(6)
+
+  @@index([email_message_id])
+  @@index([created_at])
+  @@map("webhook_logs")
+}
