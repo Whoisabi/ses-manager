@@ -126,8 +126,15 @@ export default function SendEmail() {
   };
 
   const handleBulkSend = (data: BulkSendForm) => {
-    bulkSendMutation.mutate(data);
-  }
+    // Clean up configuration set - don't send if empty or "none"
+    const cleanedData = {
+      ...data,
+      configurationSetName: data.configurationSetName && data.configurationSetName !== "none" 
+        ? data.configurationSetName 
+        : undefined,
+    };
+    bulkSendMutation.mutate(cleanedData);
+  };
 
   // Get verified domains and emails
   const verifiedIdentities: SESIdentity[] = identities?.identities?.filter(i => i.verified) || [];
@@ -465,7 +472,7 @@ export default function SendEmail() {
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                  <SelectItem value="none" data-testid="select-item-bulk-none">No tracking</SelectItem>
+                                  <SelectItem value="" data-testid="select-item-bulk-none">No tracking</SelectItem>
                                   {!loadingConfigSets && (configSets as any[])?.map((configSet: any) => (
                                     <SelectItem 
                                       key={configSet.id} 

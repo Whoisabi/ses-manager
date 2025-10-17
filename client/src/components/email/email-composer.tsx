@@ -92,7 +92,14 @@ export default function EmailComposer({ showHeader = true }: EmailComposerProps)
   });
 
   const handleQuickSend = (data: QuickSendForm) => {
-    sendEmailMutation.mutate(data);
+    // Clean up configuration set - don't send if empty or "none"
+    const cleanedData = {
+      ...data,
+      configurationSetName: data.configurationSetName && data.configurationSetName !== "none" 
+        ? data.configurationSetName 
+        : undefined,
+    };
+    sendEmailMutation.mutate(cleanedData);
   };
 
   // Get verified domains and emails
@@ -324,7 +331,7 @@ export default function EmailComposer({ showHeader = true }: EmailComposerProps)
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  <SelectItem value="none" data-testid="select-item-none">No tracking</SelectItem>
+                  <SelectItem value="" data-testid="select-item-none">No tracking</SelectItem>
                   {!loadingConfigSets && (configSets as any[])?.map((configSet: any) => (
                     <SelectItem 
                       key={configSet.id} 
