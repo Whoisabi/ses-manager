@@ -816,7 +816,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const emailSend = await storage.getEmailSendByTrackingPixel(trackingId);
       
       if (emailSend && !emailSend.openedAt) {
-        await storage.updateEmailSend(emailSend.id, { openedAt: new Date() });
+        await storage.updateEmailSend(emailSend.id, { opened_at: new Date() });
         await storage.createTrackingEvent({
           emailSendId: emailSend.id,
           eventType: 'open',
@@ -863,7 +863,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Update email send record if not already clicked
       const emailSend = await storage.getEmailSend(emailSendId);
       if (emailSend && !emailSend.clickedAt) {
-        await storage.updateEmailSend(emailSend.id, { clickedAt: new Date() });
+        await storage.updateEmailSend(emailSend.id, { clicked_at: new Date() });
         await storage.createTrackingEvent({
           emailSendId: emailSend.id,
           eventType: 'click',
@@ -1013,8 +1013,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (eventType === 'Bounce') {
           await storage.updateEmailSend(emailSend.id, {
             status: 'bounced',
-            bouncedAt: new Date(),
-            bounceReason: JSON.stringify(notification.bounce),
+            bounced_at: new Date(),
+            bounce_reason: JSON.stringify(notification.bounce),
           });
           
           await storage.createTrackingEvent({
@@ -1027,8 +1027,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } else if (eventType === 'Complaint') {
           await storage.updateEmailSend(emailSend.id, {
             status: 'complained',
-            complainedAt: new Date(),
-            complaintReason: JSON.stringify(notification.complaint),
+            complained_at: new Date(),
+            complaint_reason: JSON.stringify(notification.complaint),
           });
           
           await storage.createTrackingEvent({
@@ -1042,7 +1042,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (!emailSend.deliveredAt) {
             await storage.updateEmailSend(emailSend.id, {
               status: 'delivered',
-              deliveredAt: new Date(),
+              delivered_at: new Date(),
             });
             
             await storage.createTrackingEvent({
@@ -1058,7 +1058,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } else if (eventType === 'Open') {
           if (!emailSend.openedAt) {
             await storage.updateEmailSend(emailSend.id, {
-              openedAt: new Date(),
+              opened_at: new Date(),
             });
             
             await storage.createTrackingEvent({
@@ -1074,7 +1074,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } else if (eventType === 'Click') {
           if (!emailSend.clickedAt) {
             await storage.updateEmailSend(emailSend.id, {
-              clickedAt: new Date(),
+              clicked_at: new Date(),
             });
             
             await storage.createTrackingEvent({
