@@ -434,7 +434,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Auto-subscribe webhook to the topic
-      const webhookUrl = `${process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : 'http://localhost:5000'}/api/sns/notifications`;
+      // Use REPL_DOMAINS for production, fallback to localhost for local dev
+      const replDomains = process.env.REPL_DOMAINS;
+      const baseUrl = replDomains 
+        ? `https://${replDomains.split(',')[0]}` 
+        : 'http://localhost:5000';
+      const webhookUrl = `${baseUrl}/api/sns/notifications`;
       
       try {
         await snsService.subscribeTopic(snsTopicArn, webhookUrl);
@@ -1339,174 +1344,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Error disabling tracking:", error);
       const errorMessage = error instanceof Error ? error.message : "Failed to disable tracking";
       res.status(500).json({ message: errorMessage });
-    }
-  });
-
-  // SNS webhook endpoint for SES notifications (public)
-  // AWS SNS sends text/plain content, so we need to parse it manually
-  app.post('/api/sns/notifications', express.text({ type: '*/*' }), async (req: Request, res: Response) => {
-    try {
-      // Parse the SNS message body (AWS sends it as text/plain)
-      const notification = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-      
-      // Handle subscription confirmation (required for SNS to work)
-      if (notification.Type === 'SubscriptionConfirmation') {
-        const subscribeURL = notification.SubscribeURL;
-        if (subscribeURL) {
-          // Confirm the subscription
-          const https = await import('https');
-          https.get(subscribeURL, (response) => {
-            console.log('SNS subscription confirmed successfully');
-          });
-        }
-        return res.status(200).send('Subscription confirmed');
-      }
-      
-      // Handle unsubscribe confirmation (optional)
-      if (notification.Type === 'UnsubscribeConfirmation') {
-        return res.status(200).send('Unsubscribe confirmed');
-      }
-      
-      // Handle SES bounce, complaint, and delivery notifications
-      if (notification.Type === 'Notification') {
-        const message = JSON.parse(notification.Message);
-        
-        if (message.notificationType === 'Bounce') {
-          const messageId = message.mail.commonHeaders.messageId;
-          const emailSend = await storage.getEmailSendByMessageId(messageId);
-          
-          if (emailSend) {
-            await storage.updateEmailSend(emailSend.id, {
-              status: 'bounced',
-              bouncedAt: new Date(),
-              bounceReason: message.bounce.bounceType,
-            });
-            
-            await storage.createTrackingEvent({
-              emailSendId: emailSend.id,
-              eventType: 'bounce',
-              eventData: message.bounce,
-            });
-
-            // Save to bounce_complaint_events table
-            const bounceType = message.bounce.bounceType?.toLowerCase(); // hard, soft, transient
-            const recipient = message.bounce.bouncedRecipients?.[0];
-            if (recipient) {
-              const recipientEmail = recipient.emailAddress;
-              const domain = recipientEmail.split('@')[1];
-              
-              await storage.createBounceComplaintEvent({
-                emailSendId: emailSend.id,
-                eventType: 'bounce',
-                bounceType,
-                recipientEmail,
-                domain,
-                reason: recipient.status || recipient.diagnosticCode,
-                diagnosticCode: recipient.diagnosticCode,
-                rawData: message.bounce,
-              });
-            }
-          }
-        } else if (message.notificationType === 'Complaint') {
-          const messageId = message.mail.commonHeaders.messageId;
-          const emailSend = await storage.getEmailSendByMessageId(messageId);
-          
-          if (emailSend) {
-            await storage.updateEmailSend(emailSend.id, {
-              status: 'complained',
-              complainedAt: new Date(),
-              complaintReason: message.complaint.complaintFeedbackType,
-            });
-            
-            await storage.createTrackingEvent({
-              emailSendId: emailSend.id,
-              eventType: 'complaint',
-              eventData: message.complaint,
-            });
-
-            // Save to bounce_complaint_events table
-            const complainedRecipient = message.complaint.complainedRecipients?.[0];
-            if (complainedRecipient) {
-              const recipientEmail = complainedRecipient.emailAddress;
-              const domain = recipientEmail.split('@')[1];
-              
-              await storage.createBounceComplaintEvent({
-                emailSendId: emailSend.id,
-                eventType: 'complaint',
-                bounceType: null,
-                recipientEmail,
-                domain,
-                reason: message.complaint.complaintFeedbackType,
-                diagnosticCode: null,
-                rawData: message.complaint,
-              });
-            }
-          }
-        } else if (message.notificationType === 'Delivery') {
-          const messageId = message.mail.commonHeaders.messageId;
-          const emailSend = await storage.getEmailSendByMessageId(messageId);
-          
-          if (emailSend) {
-            await storage.updateEmailSend(emailSend.id, {
-              status: 'delivered',
-              deliveredAt: new Date(),
-            });
-            
-            await storage.createTrackingEvent({
-              emailSendId: emailSend.id,
-              eventType: 'delivery',
-              eventData: message.delivery,
-            });
-          }
-        } else if (message.notificationType === 'Open') {
-          const messageId = message.mail.commonHeaders.messageId;
-          const emailSend = await storage.getEmailSendByMessageId(messageId);
-          
-          if (emailSend && !emailSend.openedAt) {
-            await storage.updateEmailSend(emailSend.id, {
-              openedAt: new Date(),
-            });
-            
-            await storage.createTrackingEvent({
-              emailSendId: emailSend.id,
-              eventType: 'open',
-              eventData: {
-                timestamp: message.open.timestamp,
-                userAgent: message.open.userAgent,
-                ipAddress: message.open.ipAddress,
-              },
-            });
-          }
-        } else if (message.notificationType === 'Click') {
-          const messageId = message.mail.commonHeaders.messageId;
-          const emailSend = await storage.getEmailSendByMessageId(messageId);
-          
-          if (emailSend) {
-            if (!emailSend.clickedAt) {
-              await storage.updateEmailSend(emailSend.id, {
-                clickedAt: new Date(),
-              });
-            }
-            
-            await storage.createTrackingEvent({
-              emailSendId: emailSend.id,
-              eventType: 'click',
-              eventData: {
-                timestamp: message.click.timestamp,
-                link: message.click.link,
-                linkTags: message.click.linkTags,
-                userAgent: message.click.userAgent,
-                ipAddress: message.click.ipAddress,
-              },
-            });
-          }
-        }
-      }
-      
-      res.status(200).send('OK');
-    } catch (error) {
-      console.error("Error processing SNS notification:", error);
-      res.status(500).send('Error');
     }
   });
 
