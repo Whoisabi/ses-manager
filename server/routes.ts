@@ -18,6 +18,8 @@ import { z } from "zod";
 import multer from 'multer';
 import csvParser from 'csv-parser';
 import { Readable } from 'stream';
+// @ts-ignore - sns-validator doesn't have type definitions
+import MessageValidator from 'sns-validator';
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -883,7 +885,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('SNS notification received:', message.Type);
 
       // Validate SNS message signature
-      const MessageValidator = require('sns-validator');
       const validator = new MessageValidator();
 
       await new Promise((resolve, reject) => {

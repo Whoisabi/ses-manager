@@ -279,3 +279,7 @@
 [x] 279. Fixed backend webhook URL in configuration set creation - changed to /api/sns/notifications (2025-10-17)
 [x] 280. Fixed frontend display webhook URL in configuration sets page - changed to /api/sns/notifications (2025-10-17)
 [x] 281. ✅ WEBHOOK URL FIX COMPLETE - New configuration sets will now receive tracking events properly (2025-10-17)
+[x] 282. FIXED CRITICAL: SNS webhook failing with "require is not defined" error (2025-10-17)
+[x] 283. Root cause: Using require() for sns-validator in ES module context - not compatible with tsx/TypeScript (2025-10-17)
+[x] 284. Changed to proper ES6 import statement with @ts-ignore for missing type definitions (2025-10-17)
+[x] 285. ✅ SNS WEBHOOK IMPORT FIX COMPLETE - Webhook will now process tracking events properly (2025-10-17)
