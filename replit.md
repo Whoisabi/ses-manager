@@ -50,6 +50,10 @@ Preferred communication style: Simple, everyday language.
   - Tracking pixels for open tracking
   - Unique redirect links for click tracking
   - SNS integration for bounce/complaint notifications
+  - **Auto-Configuration Sets**: Automated SNS topic creation and webhook subscription for simplified tracking setup
+    - Automatically creates or reuses 'ses-tracking' SNS topic
+    - Auto-subscribes webhook endpoint to topic
+    - Users only need to provide configuration set name and tracking options
 - **Mass Mailing**: CSV-based recipient management with bulk sending capabilities
 - **Template System**: Reusable email templates with variable substitution
 

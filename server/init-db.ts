@@ -112,15 +112,32 @@ async function fixDatabaseSchema(prisma: PrismaClient) {
       await prisma.$executeRawUnsafe(`
         CREATE TABLE bounce_complaint_events (
           id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
-          email_send_id VARCHAR NOT NULL REFERENCES email_sends(id) ON DELETE CASCADE,
+          email_send_id VARCHAR REFERENCES email_sends(id) ON DELETE CASCADE,
           event_type VARCHAR NOT NULL,
-          recipient VARCHAR NOT NULL,
-          reason VARCHAR,
           bounce_type VARCHAR,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          recipient_email VARCHAR NOT NULL,
+          domain VARCHAR,
+          reason TEXT,
+          diagnostic_code TEXT,
+          timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          raw_data JSONB
         )
       `);
       console.log('✅ Created bounce_complaint_events table');
+    } else {
+      // Check if domain column exists and add it if missing
+      const domainColumn = await prisma.$queryRawUnsafe<any[]>(`
+        SELECT column_name FROM information_schema.columns 
+        WHERE table_schema = 'public' AND table_name = 'bounce_complaint_events' AND column_name = 'domain'
+      `);
+      
+      if (domainColumn && domainColumn.length === 0) {
+        console.log('⚠️  Adding missing domain column to bounce_complaint_events...');
+        await prisma.$executeRawUnsafe(`
+          ALTER TABLE bounce_complaint_events ADD COLUMN domain VARCHAR
+        `);
+        console.log('✅ Added domain column to bounce_complaint_events');
+      }
     }
     
     const configurationSetsTable = await prisma.$queryRawUnsafe<any[]>(`
