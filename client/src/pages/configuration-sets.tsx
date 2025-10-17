@@ -375,7 +375,7 @@ export default function ConfigurationSets() {
                       The webhook endpoint is automatically subscribed to receive tracking events
                     </p>
                     <code className="block mt-2 p-2 bg-muted rounded text-sm font-mono break-all">
-                      {typeof window !== 'undefined' ? `${window.location.origin}/api/webhooks/sns` : '/api/webhooks/sns'}
+                      {typeof window !== 'undefined' ? `${window.location.origin}/api/sns/notifications` : '/api/sns/notifications'}
                     </code>
                   </div>
                 </div>

@@ -432,7 +432,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Auto-subscribe webhook to the topic
-      const webhookUrl = `${process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : 'http://localhost:5000'}/api/webhooks/sns`;
+      const webhookUrl = `${process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : 'http://localhost:5000'}/api/sns/notifications`;
       
       try {
         await snsService.subscribeTopic(snsTopicArn, webhookUrl);
