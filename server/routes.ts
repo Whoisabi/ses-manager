@@ -915,7 +915,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Handle notifications
       if (message.Type === 'Notification') {
-        const notification = JSON.parse(message.Message);
+        // Try to parse message as JSON, if it fails it's likely a test notification
+        let notification;
+        try {
+          notification = JSON.parse(message.Message);
+        } catch (e) {
+          console.log('SNS test/non-JSON notification received:', message.Message);
+          return res.status(200).send('Test notification received');
+        }
+        
         console.log('SNS notification type:', notification.notificationType);
 
         if (notification.notificationType === 'Bounce') {
