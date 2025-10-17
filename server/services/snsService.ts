@@ -1,4 +1,4 @@
-import { SNSClient, CreateTopicCommand, SubscribeCommand, UnsubscribeCommand, SetTopicAttributesCommand, DeleteTopicCommand } from '@aws-sdk/client-sns';
+import { SNSClient, CreateTopicCommand, SubscribeCommand, UnsubscribeCommand, SetTopicAttributesCommand, DeleteTopicCommand, ListTopicsCommand } from '@aws-sdk/client-sns';
 import { SESClient, SetIdentityNotificationTopicCommand } from '@aws-sdk/client-ses';
 import { decrypt } from './encryptionService';
 import { storage } from '../storage';
@@ -59,6 +59,21 @@ export class SNSService {
 
     const response = await sns.send(command);
     return response.TopicArn!;
+  }
+
+  async listTopics(): Promise<string[]> {
+    const { sns } = this.ensureInitialized();
+    
+    const command = new ListTopicsCommand({});
+    const response = await sns.send(command);
+    
+    return response.Topics?.map(topic => topic.TopicArn!) || [];
+  }
+
+  async findTopicByName(name: string): Promise<string | null> {
+    const topics = await this.listTopics();
+    const topicArn = topics.find(arn => arn.endsWith(`:${name}`));
+    return topicArn || null;
   }
 
   async subscribeTopic(topicArn: string, endpoint: string): Promise<string> {
