@@ -924,51 +924,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(200).send('Test notification received');
         }
         
-        // Log full notification structure for debugging
-        console.log('=== FULL SNS NOTIFICATION ===');
-        console.log(JSON.stringify(notification, null, 2));
-        console.log('=== Notification Type:', notification.notificationType || notification.eventType || 'UNKNOWN');
-        console.log('=== Available Keys:', Object.keys(notification));
+        // AWS SES uses eventType, not notificationType
+        const eventType = notification.eventType;
+        const messageId = notification.mail?.messageId;
+        
+        console.log(`SNS Event: ${eventType} for messageId: ${messageId}`);
 
-        if (notification.notificationType === 'Bounce') {
-          const messageId = notification.mail.messageId;
-          const emailSend = await storage.getEmailSendByMessageId(messageId);
+        if (!messageId) {
+          console.log('No messageId in notification, skipping');
+          return res.status(200).send('No messageId found');
+        }
+
+        const emailSend = await storage.getEmailSendByMessageId(messageId);
+        
+        if (!emailSend) {
+          console.log(`Email send record not found for messageId: ${messageId}`);
+          return res.status(200).send('Email send record not found');
+        }
+
+        if (eventType === 'Bounce') {
+          await storage.updateEmailSend(emailSend.id, {
+            status: 'bounced',
+            bouncedAt: new Date(),
+            bounceReason: JSON.stringify(notification.bounce),
+          });
           
-          if (emailSend) {
-            await storage.updateEmailSend(emailSend.id, {
-              status: 'bounced',
-              bouncedAt: new Date(),
-              bounceReason: JSON.stringify(notification.bounce),
-            });
-            
-            await storage.createTrackingEvent({
-              emailSendId: emailSend.id,
-              eventType: 'bounce',
-              eventData: notification.bounce,
-            });
-          }
-        } else if (notification.notificationType === 'Complaint') {
-          const messageId = notification.mail.messageId;
-          const emailSend = await storage.getEmailSendByMessageId(messageId);
+          await storage.createTrackingEvent({
+            emailSendId: emailSend.id,
+            eventType: 'bounce',
+            eventData: notification.bounce,
+          });
+          console.log(`✅ Bounce recorded for email ${emailSend.id}`);
+        } else if (eventType === 'Complaint') {
+          await storage.updateEmailSend(emailSend.id, {
+            status: 'complained',
+            complainedAt: new Date(),
+            complaintReason: JSON.stringify(notification.complaint),
+          });
           
-          if (emailSend) {
-            await storage.updateEmailSend(emailSend.id, {
-              status: 'complained',
-              complainedAt: new Date(),
-              complaintReason: JSON.stringify(notification.complaint),
-            });
-            
-            await storage.createTrackingEvent({
-              emailSendId: emailSend.id,
-              eventType: 'complaint',
-              eventData: notification.complaint,
-            });
-          }
-        } else if (notification.notificationType === 'Delivery') {
-          const messageId = notification.mail.messageId;
-          const emailSend = await storage.getEmailSendByMessageId(messageId);
-          
-          if (emailSend && !emailSend.deliveredAt) {
+          await storage.createTrackingEvent({
+            emailSendId: emailSend.id,
+            eventType: 'complaint',
+            eventData: notification.complaint,
+          });
+          console.log(`✅ Complaint recorded for email ${emailSend.id}`);
+        } else if (eventType === 'Delivery') {
+          if (!emailSend.deliveredAt) {
             await storage.updateEmailSend(emailSend.id, {
               status: 'delivered',
               deliveredAt: new Date(),
@@ -979,7 +980,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
               eventType: 'delivery',
               eventData: notification.delivery,
             });
+            console.log(`✅ Delivery recorded for email ${emailSend.id}`);
           }
+        } else if (eventType === 'Open') {
+          if (!emailSend.openedAt) {
+            await storage.updateEmailSend(emailSend.id, {
+              openedAt: new Date(),
+            });
+            
+            await storage.createTrackingEvent({
+              emailSendId: emailSend.id,
+              eventType: 'open',
+              eventData: notification.open,
+            });
+            console.log(`✅ Open recorded for email ${emailSend.id}`);
+          }
+        } else if (eventType === 'Click') {
+          if (!emailSend.clickedAt) {
+            await storage.updateEmailSend(emailSend.id, {
+              clickedAt: new Date(),
+            });
+            
+            await storage.createTrackingEvent({
+              emailSendId: emailSend.id,
+              eventType: 'click',
+              eventData: notification.click,
+            });
+            console.log(`✅ Click recorded for email ${emailSend.id}`);
+          }
+        } else if (eventType === 'Send') {
+          // Send event is just confirmation, we already have the record
+          console.log(`Send event received for ${emailSend.id}, no action needed`);
+        } else {
+          console.log(`Unknown event type: ${eventType}`);
         }
 
         return res.status(200).send('Notification processed');
