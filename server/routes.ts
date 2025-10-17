@@ -924,7 +924,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(200).send('Test notification received');
         }
         
-        console.log('SNS notification type:', notification.notificationType);
+        // Log full notification structure for debugging
+        console.log('=== FULL SNS NOTIFICATION ===');
+        console.log(JSON.stringify(notification, null, 2));
+        console.log('=== Notification Type:', notification.notificationType || notification.eventType || 'UNKNOWN');
+        console.log('=== Available Keys:', Object.keys(notification));
 
         if (notification.notificationType === 'Bounce') {
           const messageId = notification.mail.messageId;
