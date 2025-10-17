@@ -23,13 +23,13 @@ export interface SendBulkEmailRequest {
 
 export class EmailService {
   private getBaseUrl(): string {
-    // Use REPL_DOMAINS for deployed Replit apps, fallback to BASE_URL or localhost
-    const replDomains = process.env.REPL_DOMAINS;
-    if (replDomains) {
-      const primaryDomain = replDomains.split(',')[0];
+    // Use REPLIT_DOMAINS for deployed Replit apps, fallback to localhost
+    const replitDomains = process.env.REPLIT_DOMAINS;
+    if (replitDomains) {
+      const primaryDomain = replitDomains.split(',')[0];
       return `https://${primaryDomain}`;
     }
-    return process.env.BASE_URL || 'http://localhost:5000';
+    return 'http://localhost:5000';
   }
 
   private addClickTracking(content: string, emailSendId: string): string {

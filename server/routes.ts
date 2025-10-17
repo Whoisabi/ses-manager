@@ -434,12 +434,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Auto-subscribe webhook to the topic
-      // Use REPL_DOMAINS for production, fallback to localhost for local dev
-      const replDomains = process.env.REPL_DOMAINS;
-      const baseUrl = replDomains 
-        ? `https://${replDomains.split(',')[0]}` 
+      // Use REPLIT_DOMAINS for production, fallback to localhost for local dev
+      const replitDomains = process.env.REPLIT_DOMAINS;
+      const baseUrl = replitDomains 
+        ? `https://${replitDomains.split(',')[0]}` 
         : 'http://localhost:5000';
       const webhookUrl = `${baseUrl}/api/sns/notifications`;
+      
+      console.log('🌐 Webhook URL:', webhookUrl);
       
       try {
         await snsService.subscribeTopic(snsTopicArn, webhookUrl);
@@ -1256,7 +1258,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user!.id;
 
       // Construct webhook URL
-      const webhookUrl = `${process.env.REPL_DOMAINS?.split(',')[0] || process.env.BASE_URL || 'http://localhost:5000'}/api/sns/notifications`;
+      const webhookUrl = `https://${process.env.REPLIT_DOMAINS?.split(',')[0] || 'localhost:5000'}/api/sns/notifications`;
+      console.log('🌐 Webhook URL:', webhookUrl);
 
       // Initialize AWS services
       await awsService.initialize(userId);
