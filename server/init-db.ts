@@ -145,6 +145,32 @@ async function fixDatabaseSchema(prisma: PrismaClient) {
       console.log('✅ Created configuration_sets table');
     }
     
+    const trackingConfigTable = await prisma.$queryRawUnsafe<any[]>(`
+      SELECT table_name FROM information_schema.tables 
+      WHERE table_schema = 'public' AND table_name = 'tracking_config'
+    `);
+    
+    if (trackingConfigTable && trackingConfigTable.length === 0) {
+      console.log('⚠️  Creating missing tracking_config table...');
+      await prisma.$executeRawUnsafe(`
+        CREATE TABLE tracking_config (
+          id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          user_id VARCHAR NOT NULL REFERENCES users(id) ON DELETE CASCADE UNIQUE,
+          is_enabled BOOLEAN DEFAULT false NOT NULL,
+          bounce_topic_arn TEXT,
+          complaint_topic_arn TEXT,
+          delivery_topic_arn TEXT,
+          bounce_subscription_arn TEXT,
+          complaint_subscription_arn TEXT,
+          delivery_subscription_arn TEXT,
+          webhook_url TEXT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      console.log('✅ Created tracking_config table');
+    }
+    
     console.log('✅ Database schema fixes complete');
   } catch (error) {
     console.error('⚠️  Error fixing schema:', error);
