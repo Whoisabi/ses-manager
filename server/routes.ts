@@ -411,13 +411,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/ses/configuration-sets', isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user!.id;
-      const { name, snsTopicArn, openTrackingEnabled = true, clickTrackingEnabled = true } = req.body;
+      const { name, openTrackingEnabled = true, clickTrackingEnabled = true } = req.body;
 
       if (!name) {
         return res.status(400).json({ message: "Configuration set name is required" });
       }
 
+      // Initialize AWS and SNS services
       await awsService.initialize(userId);
+      await snsService.initialize(userId);
+
+      // Auto-create or find 'ses-tracking' SNS topic
+      let snsTopicArn = await snsService.findTopicByName('ses-tracking');
+      
+      if (!snsTopicArn) {
+        console.log('Creating new ses-tracking SNS topic...');
+        snsTopicArn = await snsService.createTopic('ses-tracking');
+      } else {
+        console.log('Using existing ses-tracking SNS topic:', snsTopicArn);
+      }
+
+      // Auto-subscribe webhook to the topic
+      const webhookUrl = `${process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : 'http://localhost:5000'}/api/webhooks/sns`;
+      
+      try {
+        await snsService.subscribeTopic(snsTopicArn, webhookUrl);
+        console.log('Webhook subscribed to SNS topic:', webhookUrl);
+      } catch (error) {
+        // Subscription might already exist, which is fine
+        console.log('Webhook subscription note:', error instanceof Error ? error.message : 'Already subscribed');
+      }
+
+      // Create configuration set with the auto-created SNS topic
       await awsService.createConfigurationSet(name, snsTopicArn, openTrackingEnabled, clickTrackingEnabled);
 
       const configSet = await storage.createConfigurationSet({
