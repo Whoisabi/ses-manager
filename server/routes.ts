@@ -953,14 +953,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (message.Type === 'SubscriptionConfirmation') {
         console.log('🔗 Confirming SNS subscription:', message.SubscribeURL);
         
-        // Fetch the subscription URL to confirm
-        const https = await import('https');
-        https.get(message.SubscribeURL, (response) => {
-          console.log('✅ Subscription confirmed:', response.statusCode);
-        });
-
-        await storage.updateWebhookLog(webhookLogId, { processingStatus: 'subscription_confirmed' });
-        return res.status(200).send('Subscription confirmed');
+        // Fetch the subscription URL to confirm using native fetch
+        try {
+          const confirmResponse = await fetch(message.SubscribeURL);
+          const confirmText = await confirmResponse.text();
+          console.log('✅ Subscription confirmed - Status:', confirmResponse.status);
+          console.log('📄 Confirmation response:', confirmText.substring(0, 200));
+          
+          await storage.updateWebhookLog(webhookLogId, { processingStatus: 'subscription_confirmed' });
+          return res.status(200).send('Subscription confirmed');
+        } catch (confirmError) {
+          console.error('❌ Failed to confirm subscription:', confirmError);
+          await storage.updateWebhookLog(webhookLogId, { 
+            processingStatus: 'confirmation_failed',
+            errorMessage: confirmError instanceof Error ? confirmError.message : 'Confirmation failed'
+          });
+          return res.status(500).send('Failed to confirm subscription');
+        }
       }
 
       // Handle notifications
