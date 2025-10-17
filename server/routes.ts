@@ -1063,37 +1063,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
             await storage.updateWebhookLog(webhookLogId, { processingStatus: 'already_processed' });
           }
         } else if (eventType === 'Open') {
-          if (!emailSend.openedAt) {
-            // If email is opened, it must have been delivered first
-            const updateData: any = { openedAt: new Date() };
-            if (!emailSend.deliveredAt) {
-              updateData.deliveredAt = new Date();
-              updateData.status = 'delivered';
-            }
-            
-            await storage.updateEmailSend(emailSend.id, updateData);
-            
-            await storage.createTrackingEvent({
-              emailSendId: emailSend.id,
-              eventType: 'open',
-              eventData: notification.open,
-            });
-            await storage.updateWebhookLog(webhookLogId, { processingStatus: 'processed' });
-            console.log(`✅ Open recorded for email ${emailSend.id}`);
-          } else {
-            await storage.updateWebhookLog(webhookLogId, { processingStatus: 'already_processed' });
-          }
+          // DISABLED: Open tracking is unreliable - email scanners auto-load images
+          // Only track opens from the tracking pixel endpoint (user-initiated)
+          await storage.updateWebhookLog(webhookLogId, { 
+            processingStatus: 'ignored_unreliable',
+            errorMessage: 'Open events ignored - unreliable due to automated email scanners'
+          });
+          console.log(`⚠️  Open event ignored for ${emailSend.id} - unreliable tracking`);
         } else if (eventType === 'Click') {
           if (!emailSend.clickedAt) {
-            // If email is clicked, it must have been delivered and opened first
+            // Real-time click tracking - clicks are reliable indicators
             const updateData: any = { clickedAt: new Date() };
             if (!emailSend.deliveredAt) {
               updateData.deliveredAt = new Date();
               updateData.status = 'delivered';
             }
-            if (!emailSend.openedAt) {
-              updateData.openedAt = new Date();
-            }
+            // Note: Don't auto-set openedAt since open tracking is unreliable
             
             await storage.updateEmailSend(emailSend.id, updateData);
             

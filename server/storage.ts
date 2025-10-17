@@ -75,7 +75,7 @@ export interface IStorage {
   deleteEmailCampaign(id: string, userId: string): Promise<void>;
 
   // Email send operations
-  createEmailSend(emailSend: InsertEmailSend, userId?: string): Promise<EmailSend>;
+  createEmailSend(emailSend: InsertEmailSend & { id?: string }, userId?: string): Promise<EmailSend>;
   updateEmailSend(id: string, updates: Partial<InsertEmailSend>): Promise<EmailSend>;
   getEmailSend(id: string): Promise<EmailSend | undefined>;
   getEmailSends(userId: string, limit?: number): Promise<EmailSend[]>;
@@ -661,7 +661,7 @@ export class DatabaseStorage implements IStorage {
 
   // Email send operations
 
-  async createEmailSend(emailSend: InsertEmailSend, userId?: string): Promise<EmailSend> {
+  async createEmailSend(emailSend: InsertEmailSend & { id?: string }, userId?: string): Promise<EmailSend> {
     const sendData: any = {
       user_id: userId,
       recipient_email: emailSend.recipientEmail,
@@ -680,6 +680,7 @@ export class DatabaseStorage implements IStorage {
       tracking_pixel_id: emailSend.trackingPixelId,
       created_at: new Date(),
     };
+    if (emailSend.id) sendData.id = emailSend.id;
     if (emailSend.campaignId) sendData.campaign_id = emailSend.campaignId;
     const e = await prisma.emailSend.create({ data: sendData });
     return {
