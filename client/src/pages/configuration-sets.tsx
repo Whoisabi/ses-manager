@@ -21,7 +21,6 @@ import { isUnauthorizedError } from "@/lib/authUtils";
 
 const configSetSchema = z.object({
   name: z.string().min(1, "Configuration set name is required"),
-  snsTopicArn: z.string().min(1, "SNS Topic ARN is required"),
   openTrackingEnabled: z.boolean().default(true),
   clickTrackingEnabled: z.boolean().default(true),
 });
@@ -37,7 +36,6 @@ export default function ConfigurationSets() {
     resolver: zodResolver(configSetSchema),
     defaultValues: {
       name: "",
-      snsTopicArn: "",
       openTrackingEnabled: true,
       clickTrackingEnabled: true,
     },
@@ -161,7 +159,7 @@ export default function ConfigurationSets() {
                   <DialogHeader>
                     <DialogTitle>Create Configuration Set</DialogTitle>
                     <DialogDescription>
-                      Set up email tracking by connecting to your AWS SNS topic
+                      Set up email tracking with automatic SNS topic creation and webhook subscription
                     </DialogDescription>
                   </DialogHeader>
                   
@@ -180,26 +178,8 @@ export default function ConfigurationSets() {
                                 data-testid="input-config-set-name"
                               />
                             </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="snsTopicArn"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>SNS Topic ARN</FormLabel>
-                            <FormControl>
-                              <Input 
-                                placeholder="arn:aws:sns:us-east-1:123456789012:ses-tracking" 
-                                {...field}
-                                data-testid="input-sns-topic-arn"
-                              />
-                            </FormControl>
                             <FormDescription>
-                              The ARN of your AWS SNS topic for receiving tracking events
+                              SNS topic and webhook will be automatically created for you
                             </FormDescription>
                             <FormMessage />
                           </FormItem>
