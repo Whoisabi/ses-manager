@@ -334,9 +334,9 @@ export default function ConfigurationSets() {
           
           <Card>
             <CardHeader>
-              <CardTitle>Setup Instructions</CardTitle>
+              <CardTitle>How It Works</CardTitle>
               <CardDescription>
-                Follow these steps to enable email tracking in AWS
+                Automatic email tracking setup - no manual AWS configuration required
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -346,9 +346,9 @@ export default function ConfigurationSets() {
                     1
                   </Badge>
                   <div>
-                    <p className="font-medium">Create SNS Topic in AWS</p>
+                    <p className="font-medium">Create Configuration Set</p>
                     <p className="text-sm text-muted-foreground">
-                      Go to AWS SNS console and create a new topic for SES event notifications
+                      Simply provide a name and select your tracking options above
                     </p>
                   </div>
                 </div>
@@ -358,9 +358,21 @@ export default function ConfigurationSets() {
                     2
                   </Badge>
                   <div>
-                    <p className="font-medium">Subscribe Webhook to SNS Topic</p>
+                    <p className="font-medium">Automatic SNS Setup</p>
                     <p className="text-sm text-muted-foreground">
-                      Add this webhook URL as an HTTPS subscription to your SNS topic:
+                      We automatically create the 'ses-tracking' SNS topic in your AWS account if it doesn't exist
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex gap-3">
+                  <Badge variant="outline" className="h-6 w-6 rounded-full flex items-center justify-center shrink-0">
+                    3
+                  </Badge>
+                  <div>
+                    <p className="font-medium">Automatic Webhook Subscription</p>
+                    <p className="text-sm text-muted-foreground">
+                      The webhook endpoint is automatically subscribed to receive tracking events
                     </p>
                     <code className="block mt-2 p-2 bg-muted rounded text-sm font-mono break-all">
                       {typeof window !== 'undefined' ? `${window.location.origin}/api/webhooks/sns` : '/api/webhooks/sns'}
@@ -370,24 +382,12 @@ export default function ConfigurationSets() {
                 
                 <div className="flex gap-3">
                   <Badge variant="outline" className="h-6 w-6 rounded-full flex items-center justify-center shrink-0">
-                    3
-                  </Badge>
-                  <div>
-                    <p className="font-medium">Create Configuration Set</p>
-                    <p className="text-sm text-muted-foreground">
-                      Use the form above to create a configuration set with your SNS topic ARN
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="flex gap-3">
-                  <Badge variant="outline" className="h-6 w-6 rounded-full flex items-center justify-center shrink-0">
                     4
                   </Badge>
                   <div>
-                    <p className="font-medium">Use Configuration Set When Sending</p>
+                    <p className="font-medium">Start Tracking</p>
                     <p className="text-sm text-muted-foreground">
-                      Select the configuration set when sending emails to enable tracking
+                      Select the configuration set when sending emails to enable open and click tracking
                     </p>
                   </div>
                 </div>
