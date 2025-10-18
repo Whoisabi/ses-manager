@@ -815,11 +815,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const trackingId = req.params.trackingId;
       const emailSend = await storage.getEmailSendByTrackingPixel(trackingId);
       
-      if (emailSend && !emailSend.opened_at) {
+      if (emailSend && !emailSend.openedAt) {
         // If email is opened, it must have been delivered first
-        const updateData: any = { opened_at: new Date() };
-        if (!emailSend.delivered_at) {
-          updateData.delivered_at = new Date();
+        const updateData: any = { openedAt: new Date() };
+        if (!emailSend.deliveredAt) {
+          updateData.deliveredAt = new Date();
           updateData.status = 'delivered';
         }
         
@@ -869,8 +869,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Update email send record if not already clicked
       const emailSend = await storage.getEmailSend(emailSendId);
-      if (emailSend && !emailSend.clicked_at) {
-        await storage.updateEmailSend(emailSend.id, { clicked_at: new Date() });
+      if (emailSend && !emailSend.clickedAt) {
+        await storage.updateEmailSend(emailSend.id, { clickedAt: new Date() });
         await storage.createTrackingEvent({
           emailSendId: emailSend.id,
           eventType: 'click',
@@ -1020,8 +1020,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (eventType === 'Bounce') {
           await storage.updateEmailSend(emailSend.id, {
             status: 'bounced',
-            bounced_at: new Date(),
-            bounce_reason: JSON.stringify(notification.bounce),
+            bouncedAt: new Date(),
+            bounceReason: JSON.stringify(notification.bounce),
           });
           
           await storage.createTrackingEvent({
@@ -1034,8 +1034,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } else if (eventType === 'Complaint') {
           await storage.updateEmailSend(emailSend.id, {
             status: 'complained',
-            complained_at: new Date(),
-            complaint_reason: JSON.stringify(notification.complaint),
+            complainedAt: new Date(),
+            complaintReason: JSON.stringify(notification.complaint),
           });
           
           await storage.createTrackingEvent({
@@ -1046,10 +1046,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await storage.updateWebhookLog(webhookLogId, { processingStatus: 'processed' });
           console.log(`✅ Complaint recorded for email ${emailSend.id}`);
         } else if (eventType === 'Delivery') {
-          if (!emailSend.delivered_at) {
+          if (!emailSend.deliveredAt) {
             await storage.updateEmailSend(emailSend.id, {
               status: 'delivered',
-              delivered_at: new Date(),
+              deliveredAt: new Date(),
             });
             
             await storage.createTrackingEvent({
@@ -1071,11 +1071,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
           console.log(`⚠️  Open event ignored for ${emailSend.id} - unreliable tracking`);
         } else if (eventType === 'Click') {
-          if (!emailSend.clicked_at) {
+          if (!emailSend.clickedAt) {
             // Real-time click tracking - clicks are reliable indicators
-            const updateData: any = { clicked_at: new Date() };
-            if (!emailSend.delivered_at) {
-              updateData.delivered_at = new Date();
+            const updateData: any = { clickedAt: new Date() };
+            if (!emailSend.deliveredAt) {
+              updateData.deliveredAt = new Date();
               updateData.status = 'delivered';
             }
             // Note: Don't auto-set opened_at since open tracking is unreliable
