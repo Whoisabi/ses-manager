@@ -918,7 +918,10 @@ export class DatabaseStorage implements IStorage {
       where: { user_id: userId, clicked_at: { not: null } },
     });
     const totalBounced = await prisma.emailSend.count({
-      where: { user_id: userId, status: 'bounced' },
+      where: { 
+        user_id: userId, 
+        status: { in: ['bounced', 'failed'] }
+      },
     });
     const totalComplained = await prisma.emailSend.count({
       where: { user_id: userId, status: 'complained' },
@@ -995,7 +998,7 @@ export class DatabaseStorage implements IStorage {
         if (send.status === 'delivered' || send.delivered_at) dataByDate[dateStr].delivered++;
         if (send.opened_at) dataByDate[dateStr].opened++;
         if (send.clicked_at) dataByDate[dateStr].clicked++;
-        if (send.status === 'bounced' || send.bounced_at) dataByDate[dateStr].bounced++;
+        if (send.status === 'bounced' || send.status === 'failed' || send.bounced_at) dataByDate[dateStr].bounced++;
         if (send.status === 'complained' || send.complained_at) dataByDate[dateStr].complained++;
       }
     });
