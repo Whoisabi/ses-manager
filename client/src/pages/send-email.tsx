@@ -6,6 +6,7 @@ import Header from "@/components/layout/header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import EmailComposer from "@/components/email/email-composer";
+import RichTextEditor from "@/components/email/rich-text-editor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -428,14 +429,11 @@ export default function SendEmail() {
                             <FormItem>
                               <FormLabel>Content</FormLabel>
                               <FormControl>
-                                <div className="min-h-[300px] border rounded-md">
-                                  <textarea
-                                    className="w-full h-full min-h-[300px] p-3 border-0 resize-none focus:outline-none"
-                                    placeholder="Enter your email content... You can use variables like {{firstName}}, {{lastName}}, {{email}}"
-                                    data-testid="textarea-bulk-content"
-                                    {...field}
-                                  />
-                                </div>
+                                <RichTextEditor
+                                  value={field.value}
+                                  onChange={field.onChange}
+                                  placeholder="Enter your email content... You can use variables like {{firstName}}, {{lastName}}, {{email}}"
+                                />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
