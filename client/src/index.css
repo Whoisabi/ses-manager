@@ -140,32 +140,62 @@
 }
 
 .rich-text-editor-wrapper .ql-stroke {
-  stroke: hsl(var(--foreground));
+  stroke: hsl(var(--foreground)) !important;
+  opacity: 0.8;
 }
 
 .rich-text-editor-wrapper .ql-fill {
-  fill: hsl(var(--foreground));
+  fill: hsl(var(--foreground)) !important;
+  opacity: 0.8;
 }
 
 .rich-text-editor-wrapper .ql-picker-label {
-  color: hsl(var(--foreground));
+  color: hsl(var(--foreground)) !important;
+  opacity: 0.8;
+  font-weight: 500;
+}
+
+.rich-text-editor-wrapper .ql-toolbar button {
+  opacity: 0.8;
+  transition: all 0.2s ease;
 }
 
 .rich-text-editor-wrapper .ql-toolbar button:hover,
 .rich-text-editor-wrapper .ql-toolbar button:focus {
-  background: hsl(var(--accent));
+  background: hsl(var(--accent)) !important;
+  opacity: 1;
+}
+
+.rich-text-editor-wrapper .ql-toolbar button:hover .ql-stroke,
+.rich-text-editor-wrapper .ql-toolbar button:focus .ql-stroke {
+  stroke: hsl(var(--primary)) !important;
+  opacity: 1;
+}
+
+.rich-text-editor-wrapper .ql-toolbar button:hover .ql-fill,
+.rich-text-editor-wrapper .ql-toolbar button:focus .ql-fill {
+  fill: hsl(var(--primary)) !important;
+  opacity: 1;
 }
 
 .rich-text-editor-wrapper .ql-toolbar button.ql-active {
-  background: hsl(var(--primary));
+  background: hsl(var(--primary)) !important;
+  opacity: 1;
 }
 
 .rich-text-editor-wrapper .ql-toolbar button.ql-active .ql-stroke {
-  stroke: hsl(var(--primary-foreground));
+  stroke: hsl(var(--primary-foreground)) !important;
+  opacity: 1;
 }
 
 .rich-text-editor-wrapper .ql-toolbar button.ql-active .ql-fill {
-  fill: hsl(var(--primary-foreground));
+  fill: hsl(var(--primary-foreground)) !important;
+  opacity: 1;
+}
+
+.rich-text-editor-wrapper .ql-picker:hover .ql-picker-label {
+  color: hsl(var(--primary)) !important;
+  opacity: 1;
 }
 
 .rich-text-editor-wrapper {
