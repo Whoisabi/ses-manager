@@ -1,0 +1,56 @@
+Delivered-To: whoisabee@gmail.com
+Received: by 2002:a05:7108:5c83:b0:485:26c6:558c with SMTP id in3csp7506563gdb;
+        Sat, 18 Oct 2025 23:47:09 -0700 (PDT)
+X-Google-Smtp-Source: AGHT+IGXiGjNDL/upRNXA94SNlTaIEFHcNdjYmvlHGTKg+qvMt+9udep9EUHqELoYlLD0HOYV+K4
+X-Received: by 2002:a05:620a:172b:b0:891:6891:5681 with SMTP id af79cd13be357-89168916272mr962784685a.65.1760856429773;
+        Sat, 18 Oct 2025 23:47:09 -0700 (PDT)
+ARC-Seal: i=1; a=rsa-sha256; t=1760856429; cv=none;
+        d=google.com; s=arc-20240605;
+        b=KrElt11WlsaKNjjf8iljMmEb3cGZR7JBPNCfaEvbIBHW9Bgb6s9CdSnrWgOgCppJm9
+         23JhjtKmmSyXZUzQ7lCBG6IGIgVvnGYxPAHbzRFo1kIjZhxcPw+UkV12T6o9lNPczPBi
+         ukcFFR4c1gr/r4o50MSYc1LIAp3yF35GcIl2EfSaawZ1SsQiMeTzG0fVszNMDk0X5fs0
+         bBC3PXl4wpssOYxT1l5rJyqmloDHfMJnoQGbz69fwjXt3dkhrs4M/KjZRr1WvyW8vJFt
+         HiXgh+tWJL5+318yoIO/Q6y40A5sXq0V5f2ULxqEliN/8UrR1+ew1mBO4WDhMuAXlVOi
+         rRJg==
+ARC-Message-Signature: i=1; a=rsa-sha256; c=relaxed/relaxed; d=google.com; s=arc-20240605;
+        h=feedback-id:date:message-id:content-transfer-encoding:mime-version
+         :subject:to:from:dkim-signature;
+        bh=M4WLlsELTDCjYbBiK13kZ/1BwOEWHVpVxPqCEqVZyP4=;
+        fh=wF2TZN7xB8dPYsKukpmncaHRASRS8OmuV1gyKlQXGr4=;
+        b=X1Naa0MNJQG0GA72TTilCHAG2pa79v3KJllWEs14zXMFIN1MsITisYpmoTFvaJS06X
+         R1u3D5GjyhHI3ujbt4oj6+xJKpI4kHOezvImb0ipRFqc9yjX0ngFiKDsM7RCmnq6h1nz
+         5ce0pSty0Ql1ZZ+NPXbQr8PgOKEoBkHtx2i8YD1xp6ZcHP4qFhaB6/dZqKdkagfNfIXn
+         An6XRDCoOZXyxKriluHxhJPee+bqWXlrzaHqyKUvkde+EDwZgxsf5Qm3PhWsnxJP+HVO
+         7Cr91XBdbS8QAiim9LgldZF/RvzLiIlIYr+IhbL4LWsP7XUp0dRRoYBHUMgDPDbinFK2
+         /NOA==;
+        dara=google.com
+ARC-Authentication-Results: i=1; mx.google.com;
+       dkim=pass header.i=@amazonses.com header.s=6gbrjpgwjskckoa6a5zn6fwqkn67xbtw header.b=fuGVWMlz;
+       spf=pass (google.com: domain of 01000199fb38d37a-5a19a378-8ffb-425e-9c09-780988f1103b-000000@amazonses.com designates 54.240.8.33 as permitted sender) smtp.mailfrom=01000199fb38d37a-5a19a378-8ffb-425e-9c09-780988f1103b-000000@amazonses.com;
+       dmarc=fail (p=NONE sp=QUARANTINE dis=NONE) header.from=gmail.com
+Return-Path: <01000199fb38d37a-5a19a378-8ffb-425e-9c09-780988f1103b-000000@amazonses.com>
+Received: from a8-33.smtp-out.amazonses.com (a8-33.smtp-out.amazonses.com. [54.240.8.33])
+        by mx.google.com with ESMTPS id af79cd13be357-891cf391845si124186285a.545.2025.10.18.23.47.09
+        for <whoisabee@gmail.com>
+        (version=TLS1_3 cipher=TLS_AES_128_GCM_SHA256 bits=128/128);
+        Sat, 18 Oct 2025 23:47:09 -0700 (PDT)
+Received-SPF: pass (google.com: domain of 01000199fb38d37a-5a19a378-8ffb-425e-9c09-780988f1103b-000000@amazonses.com designates 54.240.8.33 as permitted sender) client-ip=54.240.8.33;
+Authentication-Results: mx.google.com;
+       dkim=pass header.i=@amazonses.com header.s=6gbrjpgwjskckoa6a5zn6fwqkn67xbtw header.b=fuGVWMlz;
+       spf=pass (google.com: domain of 01000199fb38d37a-5a19a378-8ffb-425e-9c09-780988f1103b-000000@amazonses.com designates 54.240.8.33 as permitted sender) smtp.mailfrom=01000199fb38d37a-5a19a378-8ffb-425e-9c09-780988f1103b-000000@amazonses.com;
+       dmarc=fail (p=NONE sp=QUARANTINE dis=NONE) header.from=gmail.com
+DKIM-Signature: v=1; a=rsa-sha256; q=dns/txt; c=relaxed/simple; s=6gbrjpgwjskckoa6a5zn6fwqkn67xbtw; d=amazonses.com; t=1760856429; h=From:To:Subject:MIME-Version:Content-Type:Content-Transfer-Encoding:Message-ID:Date:Feedback-ID; bh=M4WLlsELTDCjYbBiK13kZ/1BwOEWHVpVxPqCEqVZyP4=; b=fuGVWMlz23mwXmgD4FT3oDYjs38eD8o9kjFhBeFKJKtwbmYo0SPvFwAjs75KRPlF O7Lp5iJXHuvrMdogFlXun5bkVEsGoRy65vZ7CZxdMBJOqZWQNJv6Nqu1DJqn/TLj6CP WlueIoSlK8psu/hjhLGYzWJPU+b6oz9HTr4sVThg=
+From: gtmabi101@gmail.com
+To: whoisabee@gmail.com
+Subject: Get 1 on 1 free
+MIME-Version: 1.0
+Content-Type: text/html; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Message-ID: <01000199fb38d37a-5a19a378-8ffb-425e-9c09-780988f1103b-000000@email.amazonses.com>
+Date: Sun, 19 Oct 2025 06:47:09 +0000
+Feedback-ID: ::1.us-east-1.8YizZrC2rrJs0pTA9MCOpt64XeNFidxHmCTeOplHnvc=:AmazonSES
+X-SES-Outgoing: 2025.10.19-54.240.8.33
+
+https://abishekgautam.com.np/
+
+please visit the website<img src="https://47c03620-d65e-4a4f-b320-8df3aa2db2c5-00-ewegpvt7td4b.picard.replit.dev/api/tracking/pixel/e0b681a6-c942-4639-a182-c2c0398b7796" width="1" height="1" style="display:none;" alt="" /><img alt="" src="https://pj9iw7th.r.us-east-1.awstrack.me/I0/01000199fb38d37a-5a19a378-8ffb-425e-9c09-780988f1103b-000000/CPmrILkespXChYjNHQ86LN3-XdA=448" style="display: none; width: 1px; height: 1px;">
