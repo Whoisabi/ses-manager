@@ -296,3 +296,8 @@
 [x] 296. Changed hover stroke and fill colors to black (2025-10-19)
 [x] 297. Dropdown labels (Normal, H1, H2, H3) also white by default, black on hover (2025-10-19)
 [x] 298. ✅ TOOLBAR COLOR SCHEME FINALIZED - White icons with black hover on darkturquoise background (2025-10-19)
+[x] 299. FIXED: Active state not visible - clicked formatting buttons (Bold, Italic, etc.) look same as unclicked (2025-10-19)
+[x] 300. Changed active button icons from white to black - same as hover color for clear visibility (2025-10-19)
+[x] 301. Changed active button background from blue to white overlay (30% opacity) (2025-10-19)
+[x] 302. Active buttons now clearly show black icons with white background overlay until unclicked (2025-10-19)
+[x] 303. ✅ ACTIVE STATE VISIBILITY FIXED - Bold, Italic, and other formatting states now clearly visible (2025-10-19)

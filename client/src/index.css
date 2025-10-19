@@ -174,16 +174,16 @@
 }
 
 .rich-text-editor-wrapper .ql-toolbar button.ql-active {
-  background: hsl(var(--primary)) !important;
+  background: rgba(255, 255, 255, 0.3) !important;
 }
 
 .rich-text-editor-wrapper .ql-toolbar button.ql-active .ql-stroke {
-  stroke: white !important;
+  stroke: black !important;
   stroke-width: 2.5 !important;
 }
 
 .rich-text-editor-wrapper .ql-toolbar button.ql-active .ql-fill {
-  fill: white !important;
+  fill: black !important;
 }
 
 .rich-text-editor-wrapper .ql-picker:hover .ql-picker-label {
