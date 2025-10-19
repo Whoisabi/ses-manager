@@ -140,16 +140,16 @@
 }
 
 .rich-text-editor-wrapper .ql-stroke {
-  stroke: #1a1a1a !important;
+  stroke: white !important;
   stroke-width: 2 !important;
 }
 
 .rich-text-editor-wrapper .ql-fill {
-  fill: #1a1a1a !important;
+  fill: white !important;
 }
 
 .rich-text-editor-wrapper .ql-picker-label {
-  color: #1a1a1a !important;
+  color: white !important;
   font-weight: 600;
 }
 
@@ -164,13 +164,13 @@
 
 .rich-text-editor-wrapper .ql-toolbar button:hover .ql-stroke,
 .rich-text-editor-wrapper .ql-toolbar button:focus .ql-stroke {
-  stroke: white !important;
+  stroke: black !important;
   stroke-width: 2.5 !important;
 }
 
 .rich-text-editor-wrapper .ql-toolbar button:hover .ql-fill,
 .rich-text-editor-wrapper .ql-toolbar button:focus .ql-fill {
-  fill: white !important;
+  fill: black !important;
 }
 
 .rich-text-editor-wrapper .ql-toolbar button.ql-active {
@@ -187,7 +187,7 @@
 }
 
 .rich-text-editor-wrapper .ql-picker:hover .ql-picker-label {
-  color: white !important;
+  color: black !important;
 }
 
 /* Dark mode adjustments */
