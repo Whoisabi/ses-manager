@@ -107,3 +107,69 @@
     @apply font-sans antialiased bg-background text-foreground;
   }
 }
+
+/* React Quill Editor Styles */
+.rich-text-editor-wrapper .ql-container {
+  min-height: 200px;
+  border: none !important;
+}
+
+.rich-text-editor-wrapper .ql-editor {
+  min-height: 200px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.rich-text-editor-wrapper .ql-toolbar {
+  border: none !important;
+  border-bottom: 1px solid hsl(var(--border)) !important;
+  background: hsl(var(--background));
+}
+
+.rich-text-editor-wrapper .ql-container {
+  background: hsl(var(--background));
+}
+
+.rich-text-editor-wrapper .ql-editor {
+  color: hsl(var(--foreground));
+}
+
+.rich-text-editor-wrapper .ql-editor.ql-blank::before {
+  color: hsl(var(--muted-foreground));
+  font-style: normal;
+}
+
+.rich-text-editor-wrapper .ql-stroke {
+  stroke: hsl(var(--foreground));
+}
+
+.rich-text-editor-wrapper .ql-fill {
+  fill: hsl(var(--foreground));
+}
+
+.rich-text-editor-wrapper .ql-picker-label {
+  color: hsl(var(--foreground));
+}
+
+.rich-text-editor-wrapper .ql-toolbar button:hover,
+.rich-text-editor-wrapper .ql-toolbar button:focus {
+  background: hsl(var(--accent));
+}
+
+.rich-text-editor-wrapper .ql-toolbar button.ql-active {
+  background: hsl(var(--primary));
+}
+
+.rich-text-editor-wrapper .ql-toolbar button.ql-active .ql-stroke {
+  stroke: hsl(var(--primary-foreground));
+}
+
+.rich-text-editor-wrapper .ql-toolbar button.ql-active .ql-fill {
+  fill: hsl(var(--primary-foreground));
+}
+
+.rich-text-editor-wrapper {
+  border: 1px solid hsl(var(--border));
+  border-radius: calc(var(--radius) - 4px);
+  overflow: hidden;
+}
