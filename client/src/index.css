@@ -123,7 +123,7 @@
 .rich-text-editor-wrapper .ql-toolbar {
   border: none !important;
   border-bottom: 1px solid hsl(var(--border)) !important;
-  background: hsl(var(--background));
+  background: darkturquoise !important;
 }
 
 .rich-text-editor-wrapper .ql-container {
@@ -159,18 +159,18 @@
 
 .rich-text-editor-wrapper .ql-toolbar button:hover,
 .rich-text-editor-wrapper .ql-toolbar button:focus {
-  background: hsl(var(--accent)) !important;
+  background: rgba(255, 255, 255, 0.2) !important;
 }
 
 .rich-text-editor-wrapper .ql-toolbar button:hover .ql-stroke,
 .rich-text-editor-wrapper .ql-toolbar button:focus .ql-stroke {
-  stroke: hsl(var(--primary)) !important;
+  stroke: white !important;
   stroke-width: 2.5 !important;
 }
 
 .rich-text-editor-wrapper .ql-toolbar button:hover .ql-fill,
 .rich-text-editor-wrapper .ql-toolbar button:focus .ql-fill {
-  fill: hsl(var(--primary)) !important;
+  fill: white !important;
 }
 
 .rich-text-editor-wrapper .ql-toolbar button.ql-active {
@@ -187,7 +187,7 @@
 }
 
 .rich-text-editor-wrapper .ql-picker:hover .ql-picker-label {
-  color: hsl(var(--primary)) !important;
+  color: white !important;
 }
 
 /* Dark mode adjustments */
