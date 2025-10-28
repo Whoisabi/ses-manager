@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { MessageSquare, Send } from "lucide-react";
 import Header from "@/components/layout/header";
+import Sidebar from "@/components/layout/sidebar";
 
 export default function SendSms() {
   const { toast } = useToast();
@@ -59,14 +60,17 @@ export default function SendSms() {
   const estimatedCost = (segments * 0.00645).toFixed(4);
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-2xl mx-auto">
-          <div className="mb-6">
-            <h1 className="text-3xl font-bold">Send SMS</h1>
-            <p className="text-muted-foreground">Send a single SMS message</p>
-          </div>
+    <div className="flex h-screen bg-background">
+      <Sidebar />
+      
+      <main className="flex-1 overflow-auto">
+        <Header 
+          title="Send SMS" 
+          description="Send a single SMS message"
+        />
+        
+        <div className="p-6">
+          <div className="max-w-2xl mx-auto">
 
           <Card>
             <CardHeader>
@@ -168,8 +172,9 @@ export default function SendSms() {
               <p>• Rate limit: 1 SMS per minute per phone number</p>
             </CardContent>
           </Card>
+          </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

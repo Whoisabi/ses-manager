@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { MessageSquare, Plus, Send, Trash2 } from "lucide-react";
 import Header from "@/components/layout/header";
+import Sidebar from "@/components/layout/sidebar";
 
 interface SmsCampaign {
   id: string;
@@ -111,14 +112,17 @@ export default function SmsCampaigns() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h1 className="text-3xl font-bold">SMS Campaigns</h1>
-            <p className="text-muted-foreground">Send bulk SMS to recipient lists</p>
-          </div>
+    <div className="flex h-screen bg-background">
+      <Sidebar />
+      
+      <main className="flex-1 overflow-auto">
+        <Header 
+          title="SMS Campaigns" 
+          description="Send bulk SMS to recipient lists"
+        />
+        
+        <div className="p-6">
+        <div className="flex justify-end items-center mb-6">
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button data-testid="button-create-campaign" onClick={resetForm}>
@@ -268,7 +272,8 @@ export default function SmsCampaigns() {
             ))}
           </div>
         )}
-      </div>
+        </div>
+      </main>
     </div>
   );
 }

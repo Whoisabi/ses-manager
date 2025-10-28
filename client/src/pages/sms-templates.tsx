@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { MessageSquare, Plus, Trash2, Edit } from "lucide-react";
 import Header from "@/components/layout/header";
+import Sidebar from "@/components/layout/sidebar";
 
 interface SmsTemplate {
   id: string;
@@ -116,14 +117,17 @@ export default function SmsTemplates() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h1 className="text-3xl font-bold">SMS Templates</h1>
-            <p className="text-muted-foreground">Create and manage SMS message templates</p>
-          </div>
+    <div className="flex h-screen bg-background">
+      <Sidebar />
+      
+      <main className="flex-1 overflow-auto">
+        <Header 
+          title="SMS Templates" 
+          description="Create and manage reusable SMS message templates"
+        />
+        
+        <div className="p-6">
+        <div className="flex justify-end items-center mb-6">
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button data-testid="button-create-template" onClick={resetForm}>
@@ -247,7 +251,8 @@ export default function SmsTemplates() {
             ))}
           </div>
         )}
-      </div>
+        </div>
+      </main>
     </div>
   );
 }
