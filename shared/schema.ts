@@ -72,7 +72,8 @@ export const recipientLists = pgTable("recipient_lists", {
 export const recipients = pgTable("recipients", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   listId: varchar("list_id").references(() => recipientLists.id, { onDelete: 'cascade' }).notNull(),
-  email: varchar("email").notNull(),
+  email: varchar("email"),
+  phoneNumber: varchar("phone_number"),
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   metadata: jsonb("metadata"),
@@ -122,6 +123,57 @@ export const emailTrackingEvents = pgTable("email_tracking_events", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   emailSendId: varchar("email_send_id").references(() => emailSends.id, { onDelete: 'cascade' }).notNull(),
   eventType: varchar("event_type").notNull(), // open, click, bounce, complaint, delivery
+  eventData: jsonb("event_data"),
+  timestamp: timestamp("timestamp").defaultNow(),
+});
+
+// SMS templates
+export const smsTemplates = pgTable("sms_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  name: varchar("name").notNull(),
+  content: text("content").notNull(),
+  variables: text("variables").array(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// SMS campaigns
+export const smsCampaigns = pgTable("sms_campaigns", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  name: varchar("name").notNull(),
+  content: text("content").notNull(),
+  templateId: varchar("template_id").references(() => smsTemplates.id),
+  recipientListId: varchar("recipient_list_id").references(() => recipientLists.id),
+  status: varchar("status").notNull().default('draft'), // draft, sending, sent, failed
+  scheduledAt: timestamp("scheduled_at"),
+  sentAt: timestamp("sent_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Individual SMS sends
+export const smsSends = pgTable("sms_sends", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  campaignId: varchar("campaign_id").references(() => smsCampaigns.id, { onDelete: 'cascade' }),
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }),
+  recipientPhone: varchar("recipient_phone").notNull(),
+  content: text("content").notNull(),
+  status: varchar("status").notNull().default('pending'), // pending, sent, delivered, failed
+  messageId: varchar("message_id"), // AWS SNS message ID
+  sentAt: timestamp("sent_at"),
+  deliveredAt: timestamp("delivered_at"),
+  failedAt: timestamp("failed_at"),
+  failureReason: text("failure_reason"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// SMS tracking events
+export const smsTrackingEvents = pgTable("sms_tracking_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  smsSendId: varchar("sms_send_id").references(() => smsSends.id, { onDelete: 'cascade' }).notNull(),
+  eventType: varchar("event_type").notNull(), // sent, delivered, failed
   eventData: jsonb("event_data"),
   timestamp: timestamp("timestamp").defaultNow(),
 });
@@ -182,8 +234,10 @@ export const trackingConfig = pgTable("tracking_config", {
 export const usersRelations = relations(users, ({ many, one }) => ({
   awsCredentials: many(awsCredentials),
   emailTemplates: many(emailTemplates),
+  smsTemplates: many(smsTemplates),
   recipientLists: many(recipientLists),
   emailCampaigns: many(emailCampaigns),
+  smsCampaigns: many(smsCampaigns),
   domains: many(domains),
   trackingConfig: one(trackingConfig),
 }));
@@ -203,13 +257,22 @@ export const emailTemplatesRelations = relations(emailTemplates, ({ one, many })
   campaigns: many(emailCampaigns),
 }));
 
+export const smsTemplatesRelations = relations(smsTemplates, ({ one, many }) => ({
+  user: one(users, {
+    fields: [smsTemplates.userId],
+    references: [users.id],
+  }),
+  campaigns: many(smsCampaigns),
+}));
+
 export const recipientListsRelations = relations(recipientLists, ({ one, many }) => ({
   user: one(users, {
     fields: [recipientLists.userId],
     references: [users.id],
   }),
   recipients: many(recipients),
-  campaigns: many(emailCampaigns),
+  emailCampaigns: many(emailCampaigns),
+  smsCampaigns: many(smsCampaigns),
 }));
 
 export const recipientsRelations = relations(recipients, ({ one }) => ({
@@ -241,6 +304,41 @@ export const emailSendsRelations = relations(emailSends, ({ one, many }) => ({
     references: [emailCampaigns.id],
   }),
   trackingEvents: many(emailTrackingEvents),
+}));
+
+export const smsCampaignsRelations = relations(smsCampaigns, ({ one, many }) => ({
+  user: one(users, {
+    fields: [smsCampaigns.userId],
+    references: [users.id],
+  }),
+  template: one(smsTemplates, {
+    fields: [smsCampaigns.templateId],
+    references: [smsTemplates.id],
+  }),
+  recipientList: one(recipientLists, {
+    fields: [smsCampaigns.recipientListId],
+    references: [recipientLists.id],
+  }),
+  smsSends: many(smsSends),
+}));
+
+export const smsSendsRelations = relations(smsSends, ({ one, many }) => ({
+  campaign: one(smsCampaigns, {
+    fields: [smsSends.campaignId],
+    references: [smsCampaigns.id],
+  }),
+  user: one(users, {
+    fields: [smsSends.userId],
+    references: [users.id],
+  }),
+  trackingEvents: many(smsTrackingEvents),
+}));
+
+export const smsTrackingEventsRelations = relations(smsTrackingEvents, ({ one }) => ({
+  smsSend: one(smsSends, {
+    fields: [smsTrackingEvents.smsSendId],
+    references: [smsSends.id],
+  }),
 }));
 
 export const emailTrackingEventsRelations = relations(emailTrackingEvents, ({ one }) => ({
@@ -313,6 +411,18 @@ export type DnsRecord = typeof dnsRecords.$inferSelect;
 export type InsertBounceComplaintEvent = typeof bounceComplaintEvents.$inferInsert;
 export type BounceComplaintEvent = typeof bounceComplaintEvents.$inferSelect;
 
+export type InsertSmsTemplate = typeof smsTemplates.$inferInsert;
+export type SmsTemplate = typeof smsTemplates.$inferSelect;
+
+export type InsertSmsCampaign = typeof smsCampaigns.$inferInsert;
+export type SmsCampaign = typeof smsCampaigns.$inferSelect;
+
+export type InsertSmsSend = typeof smsSends.$inferInsert;
+export type SmsSend = typeof smsSends.$inferSelect;
+
+export type InsertSmsTrackingEvent = typeof smsTrackingEvents.$inferInsert;
+export type SmsTrackingEvent = typeof smsTrackingEvents.$inferSelect;
+
 // Zod schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -371,6 +481,30 @@ export const insertDnsRecordSchema = createInsertSchema(dnsRecords).omit({
 });
 
 export const insertBounceComplaintEventSchema = createInsertSchema(bounceComplaintEvents).omit({
+  id: true,
+  timestamp: true,
+});
+
+export const insertSmsTemplateSchema = createInsertSchema(smsTemplates).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertSmsCampaignSchema = createInsertSchema(smsCampaigns).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertSmsSendSchema = createInsertSchema(smsSends).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertSmsTrackingEventSchema = createInsertSchema(smsTrackingEvents).omit({
   id: true,
   timestamp: true,
 });
