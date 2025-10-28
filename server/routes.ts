@@ -1776,10 +1776,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/sms/phone-numbers', isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user!.id;
-      const phoneNumbers = await prisma.smsPhoneNumber.findMany({
-        where: { userId },
-        orderBy: { createdAt: 'desc' }
-      });
+      const phoneNumbers = await storage.getSmsPhoneNumbers(userId);
       res.json(phoneNumbers);
     } catch (error) {
       console.error("Error fetching SMS phone numbers:", error);
@@ -1796,12 +1793,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Phone number is required" });
       }
 
-      const phoneNumberRecord = await prisma.smsPhoneNumber.create({
-        data: {
-          userId,
-          phoneNumber,
-          status: 'verified',
-        },
+      const phoneNumberRecord = await storage.createSmsPhoneNumber({
+        userId,
+        phoneNumber,
+        status: 'verified',
       });
 
       res.status(201).json(phoneNumberRecord);
@@ -1816,17 +1811,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user!.id;
       const { id } = req.params;
 
-      const phoneNumber = await prisma.smsPhoneNumber.findUnique({
-        where: { id },
-      });
+      const phoneNumber = await storage.getSmsPhoneNumber(id, userId);
 
-      if (!phoneNumber || phoneNumber.userId !== userId) {
+      if (!phoneNumber) {
         return res.status(404).json({ message: "Phone number not found" });
       }
 
-      await prisma.smsPhoneNumber.delete({
-        where: { id },
-      });
+      await storage.deleteSmsPhoneNumber(id, userId);
 
       res.json({ success: true });
     } catch (error) {
@@ -1839,27 +1830,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/sms/stats', isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user!.id;
-      
-      const totalSent = await prisma.smsSend.count({
-        where: { userId, status: 'sent' }
-      });
-      
-      const totalFailed = await prisma.smsSend.count({
-        where: { userId, status: 'failed' }
-      });
-
-      const sends = await prisma.smsSend.findMany({
-        where: { userId },
-        select: { estimatedCost: true }
-      });
-
-      const estimatedCost = sends.reduce((sum, send) => sum + (Number(send.estimatedCost) || 0), 0);
-
-      res.json({
-        totalSent,
-        totalFailed,
-        estimatedCost
-      });
+      const stats = await storage.getSmsStats(userId);
+      res.json(stats);
     } catch (error) {
       console.error("Error fetching SMS stats:", error);
       res.status(500).json({ message: "Failed to fetch SMS stats" });

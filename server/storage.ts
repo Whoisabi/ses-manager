@@ -1490,6 +1490,60 @@ export class DatabaseStorage implements IStorage {
       .sort((a, b) => a.date.localeCompare(b.date));
   }
 
+  // SMS Phone Number operations
+
+  async getSmsPhoneNumbers(userId: string): Promise<SmsPhoneNumber[]> {
+    const phoneNumbers = await prisma.smsPhoneNumber.findMany({
+      where: { user_id: userId },
+      orderBy: { created_at: 'desc' },
+    });
+    return phoneNumbers.map(p => ({
+      id: p.id,
+      userId: p.user_id,
+      phoneNumber: p.phone_number,
+      status: p.status,
+      createdAt: p.created_at,
+    }));
+  }
+
+  async getSmsPhoneNumber(id: string, userId: string): Promise<SmsPhoneNumber | undefined> {
+    const p = await prisma.smsPhoneNumber.findFirst({
+      where: { id, user_id: userId },
+    });
+    if (!p) return undefined;
+    return {
+      id: p.id,
+      userId: p.user_id,
+      phoneNumber: p.phone_number,
+      status: p.status,
+      createdAt: p.created_at,
+    };
+  }
+
+  async createSmsPhoneNumber(phoneNumber: InsertSmsPhoneNumber & { userId: string }): Promise<SmsPhoneNumber> {
+    const p = await prisma.smsPhoneNumber.create({
+      data: {
+        user_id: phoneNumber.userId,
+        phone_number: phoneNumber.phoneNumber,
+        status: phoneNumber.status || 'verified',
+        created_at: new Date(),
+      },
+    });
+    return {
+      id: p.id,
+      userId: p.user_id,
+      phoneNumber: p.phone_number,
+      status: p.status,
+      createdAt: p.created_at,
+    };
+  }
+
+  async deleteSmsPhoneNumber(id: string, userId: string): Promise<void> {
+    await prisma.smsPhoneNumber.delete({
+      where: { id },
+    });
+  }
+
   // Domain operations
 
   async getDomains(userId: string): Promise<Domain[]> {
