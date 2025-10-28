@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Upload, Users, FileText, Calendar, Mail } from "lucide-react";
+import { Plus, Upload, Users, FileText, Calendar, Mail, Trash2 } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useForm } from "react-hook-form";
@@ -84,6 +84,38 @@ export default function Recipients() {
     },
   });
 
+  const deleteListMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/recipient-lists/${id}`);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Recipient list deleted successfully",
+      });
+      setSelectedList(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/recipient-lists"] });
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/login";
+        }, 500);
+        return;
+      }
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete recipient list",
+        variant: "destructive",
+      });
+    },
+  });
+
   const uploadRecipientsMutation = useMutation({
     mutationFn: async ({ listId, file }: { listId: string; file: File }) => {
       const formData = new FormData();
@@ -146,6 +178,12 @@ export default function Recipients() {
 
   const handleCreateList = (data: RecipientListForm) => {
     createListMutation.mutate(data);
+  };
+
+  const handleDeleteList = (id: string) => {
+    if (confirm("Are you sure you want to delete this recipient list? This will also delete all recipients in the list.")) {
+      deleteListMutation.mutate(id);
+    }
   };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -303,24 +341,44 @@ export default function Recipients() {
                   {(recipientLists as any[]).map((list: any) => (
                     <Card 
                       key={list.id} 
-                      className={`hover:shadow-md transition-shadow cursor-pointer ${
+                      className={`hover:shadow-md transition-shadow ${
                         selectedList?.id === list.id ? 'ring-2 ring-primary' : ''
                       }`}
-                      onClick={() => setSelectedList(list)}
                       data-testid={`card-list-${list.id}`}
                     >
                       <CardHeader>
-                        <CardTitle className="text-lg" data-testid={`text-list-name-${list.id}`}>
-                          {list.name}
-                        </CardTitle>
-                        {list.description && (
-                          <CardDescription data-testid={`text-list-description-${list.id}`}>
-                            {list.description}
-                          </CardDescription>
-                        )}
+                        <div className="flex items-start justify-between">
+                          <div 
+                            className="flex-1 cursor-pointer"
+                            onClick={() => setSelectedList(list)}
+                          >
+                            <CardTitle className="text-lg" data-testid={`text-list-name-${list.id}`}>
+                              {list.name}
+                            </CardTitle>
+                            {list.description && (
+                              <CardDescription data-testid={`text-list-description-${list.id}`}>
+                                {list.description}
+                              </CardDescription>
+                            )}
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteList(list.id);
+                            }}
+                            data-testid={`button-delete-list-${list.id}`}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </CardHeader>
                       <CardContent>
-                        <div className="space-y-3">
+                        <div 
+                          className="space-y-3 cursor-pointer"
+                          onClick={() => setSelectedList(list)}
+                        >
                           <div className="flex items-center text-sm text-muted-foreground">
                             <Mail className="w-4 h-4 mr-2" />
                             <span>Click to view recipients</span>
