@@ -148,8 +148,9 @@ export default function SanitizeEmails() {
 
   const createRecipientListMutation = useMutation({
     mutationFn: async (data: z.infer<typeof recipientListSchema>) => {
-      const listResponse: any = await apiRequest("POST", "/api/recipient-lists", data);
-      const listId = listResponse.id;
+      const listResponse = await apiRequest("POST", "/api/recipient-lists", data);
+      const listData: any = await listResponse.json();
+      const listId = listData.id;
 
       const csvContent = ['email\n', ...results!.validEmails.map(email => `${email}\n`)].join('');
       const csvBlob = new Blob([csvContent], { type: 'text/csv' });
