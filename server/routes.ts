@@ -1793,13 +1793,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Phone number is required" });
       }
 
-      const phoneNumberRecord = await storage.createSmsPhoneNumber({
-        userId,
-        phoneNumber,
-        status: 'verified',
-      });
+      // Verify phone number exists in AWS SNS origination numbers
+      try {
+        await snsService.initialize(userId);
+        const originationNumbers = await snsService.listOriginationNumbers();
+        
+        const awsNumber = originationNumbers.find(
+          num => num.phoneNumber === phoneNumber && num.status === 'ACTIVE'
+        );
 
-      res.status(201).json(phoneNumberRecord);
+        if (!awsNumber) {
+          return res.status(400).json({ 
+            message: "Phone number not found in AWS SNS origination numbers. Please configure it in AWS SNS console first.",
+            hint: "Visit AWS SNS Console > Text Messaging (SMS) > Phone numbers to add an origination number."
+          });
+        }
+
+        // Create phone number with verified status since it's confirmed in AWS
+        const phoneNumberRecord = await storage.createSmsPhoneNumber({
+          userId,
+          phoneNumber,
+          status: 'verified',
+        });
+
+        res.status(201).json(phoneNumberRecord);
+      } catch (awsError: any) {
+        // If AWS credentials aren't configured, inform the user
+        if (awsError.message?.includes('AWS credentials not configured')) {
+          return res.status(400).json({ 
+            message: "AWS credentials not configured. Please configure AWS credentials in Settings first." 
+          });
+        }
+        throw awsError;
+      }
     } catch (error) {
       console.error("Error creating SMS phone number:", error);
       res.status(500).json({ message: "Failed to create SMS phone number" });
@@ -1823,6 +1849,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting SMS phone number:", error);
       res.status(500).json({ message: "Failed to delete SMS phone number" });
+    }
+  });
+
+  // AWS SNS Origination Numbers
+  app.get('/api/sms/aws-origination-numbers', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.id;
+      
+      // Initialize SNS service
+      await snsService.initialize(userId);
+      
+      // Fetch origination numbers from AWS
+      const originationNumbers = await snsService.listOriginationNumbers();
+      
+      res.json(originationNumbers);
+    } catch (error) {
+      console.error("Error fetching AWS origination numbers:", error);
+      res.status(500).json({ message: "Failed to fetch AWS origination numbers. Make sure your AWS credentials are configured." });
     }
   });
 

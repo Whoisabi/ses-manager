@@ -11,6 +11,7 @@ export interface SendSMSParams {
   message: string;
   smsType?: 'Promotional' | 'Transactional';
   senderId?: string;
+  originationNumber?: string;
 }
 
 export interface SMSResult {
@@ -107,12 +108,18 @@ export class SMSService {
         MessageAttributes: {
           'AWS.SNS.SMS.SMSType': {
             DataType: 'String',
-            StringValue: params.smsType || 'Promotional',
+            StringValue: params.smsType || 'Transactional',
           },
           ...(params.senderId && {
             'AWS.SNS.SMS.SenderID': {
               DataType: 'String',
               StringValue: params.senderId,
+            },
+          }),
+          ...(params.originationNumber && {
+            'AWS.SNS.SMS.OriginationNumber': {
+              DataType: 'String',
+              StringValue: params.originationNumber,
             },
           }),
         },

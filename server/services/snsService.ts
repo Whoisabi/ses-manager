@@ -1,4 +1,4 @@
-import { SNSClient, CreateTopicCommand, SubscribeCommand, UnsubscribeCommand, SetTopicAttributesCommand, DeleteTopicCommand, ListTopicsCommand } from '@aws-sdk/client-sns';
+import { SNSClient, CreateTopicCommand, SubscribeCommand, UnsubscribeCommand, SetTopicAttributesCommand, DeleteTopicCommand, ListTopicsCommand, ListOriginationNumbersCommand } from '@aws-sdk/client-sns';
 import { SESClient, SetIdentityNotificationTopicCommand } from '@aws-sdk/client-ses';
 import { decrypt } from './encryptionService';
 import { storage } from '../storage';
@@ -68,6 +68,27 @@ export class SNSService {
     const response = await sns.send(command);
     
     return response.Topics?.map(topic => topic.TopicArn!) || [];
+  }
+
+  async listOriginationNumbers(): Promise<Array<{
+    phoneNumber: string;
+    status: string;
+    iso2CountryCode: string;
+    numberCapabilities: string[];
+    routeType: string;
+  }>> {
+    const { sns } = this.ensureInitialized();
+    
+    const command = new ListOriginationNumbersCommand({});
+    const response = await sns.send(command);
+    
+    return response.PhoneNumbers?.map(number => ({
+      phoneNumber: number.PhoneNumber || '',
+      status: number.Status || 'UNKNOWN',
+      iso2CountryCode: number.Iso2CountryCode || '',
+      numberCapabilities: number.NumberCapabilities || [],
+      routeType: number.RouteType || '',
+    })) || [];
   }
 
   async findTopicByName(name: string): Promise<string | null> {

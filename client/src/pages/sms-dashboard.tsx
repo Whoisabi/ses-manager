@@ -39,13 +39,21 @@ export default function SmsDashboard() {
     enabled: !!user,
   });
 
+  const { data: awsOriginationNumbers = [], isLoading: awsNumbersLoading } = useQuery<Array<{
+    phoneNumber: string;
+    status: string;
+    iso2CountryCode: string;
+    numberCapabilities: string[];
+    routeType: string;
+  }>>({
+    queryKey: ["/api/sms/aws-origination-numbers"],
+    enabled: !!user,
+    retry: false,
+  });
+
   const addPhoneNumberMutation = useMutation({
     mutationFn: async (phoneNumber: string) => {
-      const response = await apiRequest("/api/sms/phone-numbers", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phoneNumber }),
-      });
+      const response = await apiRequest("POST", "/api/sms/phone-numbers", { phoneNumber });
       return response.json();
     },
     onSuccess: () => {
@@ -68,9 +76,7 @@ export default function SmsDashboard() {
 
   const deletePhoneNumberMutation = useMutation({
     mutationFn: async (id: string) => {
-      const response = await apiRequest(`/api/sms/phone-numbers/${id}`, {
-        method: "DELETE",
-      });
+      const response = await apiRequest("DELETE", `/api/sms/phone-numbers/${id}`);
       return response.json();
     },
     onSuccess: () => {
@@ -206,14 +212,66 @@ export default function SmsDashboard() {
                   Add Phone Number
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="max-w-2xl">
                 <DialogHeader>
                   <DialogTitle>Add Sender Phone Number</DialogTitle>
                   <DialogDescription>
-                    Enter the phone number you want to use for sending SMS
+                    Select a phone number from your AWS SNS origination numbers or enter manually
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 pt-4">
+                  {awsOriginationNumbers.length > 0 && (
+                    <div>
+                      <Label className="mb-2 block">Select from AWS Origination Numbers</Label>
+                      <div className="space-y-2 max-h-60 overflow-y-auto border rounded-lg p-2">
+                        {awsOriginationNumbers
+                          .filter(awsNum => !phoneNumbers.some(pn => pn.phoneNumber === awsNum.phoneNumber))
+                          .map((awsNumber, index) => (
+                            <div 
+                              key={index} 
+                              className="flex items-center justify-between p-2 hover:bg-accent rounded cursor-pointer"
+                              onClick={() => setNewPhoneNumber(awsNumber.phoneNumber)}
+                            >
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="radio"
+                                  name="awsNumber"
+                                  checked={newPhoneNumber === awsNumber.phoneNumber}
+                                  onChange={() => setNewPhoneNumber(awsNumber.phoneNumber)}
+                                  className="cursor-pointer"
+                                />
+                                <div>
+                                  <p className="font-medium text-sm">{awsNumber.phoneNumber}</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {awsNumber.iso2CountryCode} • {awsNumber.routeType}
+                                  </p>
+                                </div>
+                              </div>
+                              <Badge variant="default" className="text-xs">
+                                {awsNumber.status}
+                              </Badge>
+                            </div>
+                          ))}
+                        {awsOriginationNumbers.filter(awsNum => !phoneNumbers.some(pn => pn.phoneNumber === awsNum.phoneNumber)).length === 0 && (
+                          <p className="text-sm text-muted-foreground text-center py-4">
+                            All AWS origination numbers have been added
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-background px-2 text-muted-foreground">
+                        Or enter manually
+                      </span>
+                    </div>
+                  </div>
+
                   <div>
                     <Label htmlFor="phoneNumber">Phone Number</Label>
                     <Input
@@ -225,16 +283,16 @@ export default function SmsDashboard() {
                       data-testid="input-phone-number"
                     />
                     <p className="text-xs text-muted-foreground mt-1">
-                      Must be in E.164 format (e.g., +1234567890)
+                      Must be in E.164 format and configured in AWS SNS
                     </p>
                   </div>
                   <Button 
                     onClick={handleAddPhoneNumber} 
                     className="w-full"
-                    disabled={addPhoneNumberMutation.isPending}
+                    disabled={addPhoneNumberMutation.isPending || !newPhoneNumber}
                     data-testid="button-submit-phone"
                   >
-                    {addPhoneNumberMutation.isPending ? "Adding..." : "Add Phone Number"}
+                    {addPhoneNumberMutation.isPending ? "Verifying & Adding..." : "Add Phone Number"}
                   </Button>
                 </div>
               </DialogContent>
@@ -244,10 +302,56 @@ export default function SmsDashboard() {
           <Alert>
             <Info className="h-4 w-4" />
             <AlertDescription>
-              Add phone numbers that you own and want to use as sender IDs for your SMS campaigns. 
-              Note: Some regions require pre-approved sender IDs through AWS SNS.
+              <div className="space-y-2">
+                <p className="font-semibold">How to add SMS sender phone numbers:</p>
+                <ol className="list-decimal list-inside space-y-1 text-sm">
+                  <li>Go to <a href="https://console.aws.amazon.com/sns" target="_blank" rel="noopener noreferrer" className="text-primary underline">AWS SNS Console</a></li>
+                  <li>Navigate to <strong>Text messaging (SMS)</strong> → <strong>Phone numbers</strong></li>
+                  <li>Request an origination number (10DLC for US, toll-free, or international number)</li>
+                  <li>Wait for number to be activated (status: ACTIVE)</li>
+                  <li>Come back here and add the activated phone number below</li>
+                </ol>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Note: Phone numbers must be verified in AWS SNS before you can add them here.
+                </p>
+              </div>
             </AlertDescription>
           </Alert>
+
+          {awsNumbersLoading ? (
+            <div className="text-center py-4" data-testid="status-loading-aws-numbers">
+              <p className="text-muted-foreground">Loading AWS origination numbers...</p>
+            </div>
+          ) : awsOriginationNumbers.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Available AWS Origination Numbers</CardTitle>
+                <CardDescription>
+                  These phone numbers are configured in your AWS SNS account and ready to use
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {awsOriginationNumbers.map((awsNumber, index) => (
+                    <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <Phone className="w-4 h-4 text-primary" />
+                        <div>
+                          <p className="font-medium">{awsNumber.phoneNumber}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {awsNumber.iso2CountryCode} • {awsNumber.routeType} • {awsNumber.numberCapabilities.join(', ')}
+                          </p>
+                        </div>
+                      </div>
+                      <Badge variant={awsNumber.status === 'ACTIVE' ? 'default' : 'secondary'}>
+                        {awsNumber.status}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {phoneNumbersLoading ? (
             <div className="text-center py-8" data-testid="status-loading-numbers">
