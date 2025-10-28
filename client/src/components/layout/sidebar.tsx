@@ -15,12 +15,13 @@ import {
   Activity,
   FilterX,
   MessageSquare,
-  Send
+  Send,
+  Phone
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import DOMPurify from 'dompurify';
 
-const navigation = [
+const sesNavigation = [
   { name: "Dashboard", href: "/dashboard", icon: BarChart3 },
   { name: "SES Dashboard", href: "/ses-dashboard", icon: Shield },
   { name: "Domains", href: "/domains", icon: Globe },
@@ -30,9 +31,15 @@ const navigation = [
   { name: "Templates", href: "/templates", icon: FileText },
   { name: "Recipients", href: "/recipients", icon: Users },
   { name: "Sanitize Emails", href: "/sanitize-emails", icon: FilterX },
+];
+
+const smsNavigation = [
+  { name: "SMS Dashboard", href: "/sms-dashboard", icon: Phone },
   { name: "Send SMS", href: "/send-sms", icon: Send },
-  { name: "SMS Templates", href: "/sms-templates", icon: MessageSquare },
   { name: "SMS Campaigns", href: "/sms-campaigns", icon: MessageSquare },
+];
+
+const generalNavigation = [
   { name: "Analytics", href: "/analytics", icon: BarChart3 },
   { name: "Settings", href: "/settings", icon: Settings },
 ];
@@ -65,8 +72,67 @@ export default function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-4 space-y-2">
-        {navigation.map((item) => {
+      <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+        {/* SES Section */}
+        <div className="text-xs font-semibold text-muted-foreground px-3 py-1">
+          EMAIL (SES)
+        </div>
+        {sesNavigation.map((item) => {
+          const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
+          const Icon = item.icon;
+          const safeName = sanitize(item.name);
+          return (
+            <Link
+              key={safeName}
+              href={item.href}
+              className={cn(
+                "flex items-center space-x-3 px-3 py-2 rounded-md transition-colors",
+                isActive
+                  ? "bg-accent text-accent-foreground"
+                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              )}
+              data-testid={`nav-${safeName.toLowerCase().replace(/\s+/g, '-')}`}
+            >
+              <Icon className="w-5 h-5" />
+              <span className="font-medium">{safeName}</span>
+            </Link>
+          );
+        })}
+
+        {/* Separator */}
+        <div className="border-t border-border my-2"></div>
+
+        {/* SMS Section */}
+        <div className="text-xs font-semibold text-muted-foreground px-3 py-1">
+          SMS (SNS)
+        </div>
+        {smsNavigation.map((item) => {
+          const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
+          const Icon = item.icon;
+          const safeName = sanitize(item.name);
+          return (
+            <Link
+              key={safeName}
+              href={item.href}
+              className={cn(
+                "flex items-center space-x-3 px-3 py-2 rounded-md transition-colors",
+                isActive
+                  ? "bg-accent text-accent-foreground"
+                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              )}
+              data-testid={`nav-${safeName.toLowerCase().replace(/\s+/g, '-')}`}
+            >
+              <Icon className="w-5 h-5" />
+              <span className="font-medium">{safeName}</span>
+            </Link>
+          );
+        })}
+
+        {/* Separator */}
+        <div className="border-t border-border my-2"></div>
+
+        {/* General Section */}
+        {generalNavigation.map((item) => {
           const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
           const Icon = item.icon;
           const safeName = sanitize(item.name);

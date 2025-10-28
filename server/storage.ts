@@ -139,6 +139,12 @@ export interface IStorage {
   createSmsTrackingEvent(event: InsertSmsTrackingEvent): Promise<SmsTrackingEvent>;
   getSmsTrackingEvents(smsSendId: string): Promise<SmsTrackingEvent[]>;
 
+  // SMS phone number operations
+  getSmsPhoneNumbers(userId: string): Promise<SmsPhoneNumber[]>;
+  getSmsPhoneNumber(id: string, userId: string): Promise<SmsPhoneNumber | undefined>;
+  createSmsPhoneNumber(phoneNumber: InsertSmsPhoneNumber & { userId: string }): Promise<SmsPhoneNumber>;
+  deleteSmsPhoneNumber(id: string, userId: string): Promise<void>;
+
   // SMS Analytics operations
   getSmsStats(userId: string): Promise<{
     totalSent: number;

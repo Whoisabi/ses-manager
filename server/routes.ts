@@ -1772,6 +1772,100 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // SMS Phone Numbers
+  app.get('/api/sms/phone-numbers', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.id;
+      const phoneNumbers = await prisma.smsPhoneNumber.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' }
+      });
+      res.json(phoneNumbers);
+    } catch (error) {
+      console.error("Error fetching SMS phone numbers:", error);
+      res.status(500).json({ message: "Failed to fetch SMS phone numbers" });
+    }
+  });
+
+  app.post('/api/sms/phone-numbers', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.id;
+      const { phoneNumber } = req.body;
+
+      if (!phoneNumber) {
+        return res.status(400).json({ message: "Phone number is required" });
+      }
+
+      const phoneNumberRecord = await prisma.smsPhoneNumber.create({
+        data: {
+          userId,
+          phoneNumber,
+          status: 'verified',
+        },
+      });
+
+      res.status(201).json(phoneNumberRecord);
+    } catch (error) {
+      console.error("Error creating SMS phone number:", error);
+      res.status(500).json({ message: "Failed to create SMS phone number" });
+    }
+  });
+
+  app.delete('/api/sms/phone-numbers/:id', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.id;
+      const { id } = req.params;
+
+      const phoneNumber = await prisma.smsPhoneNumber.findUnique({
+        where: { id },
+      });
+
+      if (!phoneNumber || phoneNumber.userId !== userId) {
+        return res.status(404).json({ message: "Phone number not found" });
+      }
+
+      await prisma.smsPhoneNumber.delete({
+        where: { id },
+      });
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting SMS phone number:", error);
+      res.status(500).json({ message: "Failed to delete SMS phone number" });
+    }
+  });
+
+  // SMS Stats
+  app.get('/api/sms/stats', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.id;
+      
+      const totalSent = await prisma.smsSend.count({
+        where: { userId, status: 'sent' }
+      });
+      
+      const totalFailed = await prisma.smsSend.count({
+        where: { userId, status: 'failed' }
+      });
+
+      const sends = await prisma.smsSend.findMany({
+        where: { userId },
+        select: { estimatedCost: true }
+      });
+
+      const estimatedCost = sends.reduce((sum, send) => sum + (Number(send.estimatedCost) || 0), 0);
+
+      res.json({
+        totalSent,
+        totalFailed,
+        estimatedCost
+      });
+    } catch (error) {
+      console.error("Error fetching SMS stats:", error);
+      res.status(500).json({ message: "Failed to fetch SMS stats" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

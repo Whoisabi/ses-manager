@@ -178,6 +178,16 @@ export const smsTrackingEvents = pgTable("sms_tracking_events", {
   timestamp: timestamp("timestamp").defaultNow(),
 });
 
+// SMS phone numbers - store verified sender phone numbers
+export const smsPhoneNumbers = pgTable("sms_phone_numbers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  phoneNumber: varchar("phone_number").notNull().unique(),
+  status: varchar("status").notNull().default('verified'), // verified, pending, failed
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Domains - store verified domains
 export const domains = pgTable("domains", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -423,6 +433,9 @@ export type SmsSend = typeof smsSends.$inferSelect;
 export type InsertSmsTrackingEvent = typeof smsTrackingEvents.$inferInsert;
 export type SmsTrackingEvent = typeof smsTrackingEvents.$inferSelect;
 
+export type InsertSmsPhoneNumber = typeof smsPhoneNumbers.$inferInsert;
+export type SmsPhoneNumber = typeof smsPhoneNumbers.$inferSelect;
+
 // Zod schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -507,6 +520,13 @@ export const insertSmsSendSchema = createInsertSchema(smsSends).omit({
 export const insertSmsTrackingEventSchema = createInsertSchema(smsTrackingEvents).omit({
   id: true,
   timestamp: true,
+});
+
+export const insertSmsPhoneNumberSchema = createInsertSchema(smsPhoneNumbers).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+  updatedAt: true,
 });
 
 export type InsertTrackingConfig = typeof trackingConfig.$inferInsert;

@@ -19,7 +19,7 @@ import Domains from "@/pages/domains";
 import EmailVerification from "@/pages/email-verification";
 import ConfigurationSets from "@/pages/configuration-sets";
 import SanitizeEmails from "@/pages/sanitize-emails";
-import SmsTemplates from "@/pages/sms-templates";
+import SmsDashboard from "@/pages/sms-dashboard";
 import SendSms from "@/pages/send-sms";
 import SmsCampaigns from "@/pages/sms-campaigns";
 import NotFound from "@/pages/not-found";
@@ -40,7 +40,7 @@ function Router() {
       <ProtectedRoute path="/email-verification" component={EmailVerification} />
       <ProtectedRoute path="/configuration-sets" component={ConfigurationSets} />
       <ProtectedRoute path="/sanitize-emails" component={SanitizeEmails} />
-      <ProtectedRoute path="/sms-templates" component={SmsTemplates} />
+      <ProtectedRoute path="/sms-dashboard" component={SmsDashboard} />
       <ProtectedRoute path="/send-sms" component={SendSms} />
       <ProtectedRoute path="/sms-campaigns" component={SmsCampaigns} />
       <ProtectedRoute path="/settings" component={Settings} />

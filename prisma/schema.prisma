@@ -27,6 +27,7 @@ model User {
   sms_sends          SmsSend[]
   sms_campaigns      SmsCampaign[]
   sms_templates      SmsTemplate[]
+  sms_phone_numbers  SmsPhoneNumber[]
 
   @@map("users")
 }
@@ -303,4 +304,16 @@ model SmsSend {
   campaign           SmsCampaign?  @relation(fields: [campaign_id], references: [id], onDelete: Cascade)
 
   @@map("sms_sends")
+}
+
+model SmsPhoneNumber {
+  id           String   @id @default(uuid())
+  user_id      String
+  phone_number String   @unique
+  status       String   @default("verified")
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+  user         User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("sms_phone_numbers")
 }
