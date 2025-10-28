@@ -1,4 +1,5 @@
 import { SESClient, SendEmailCommand, SendBulkTemplatedEmailCommand, CreateTemplateCommand, DeleteTemplateCommand, ListTemplatesCommand, ListIdentitiesCommand, GetIdentityVerificationAttributesCommand, VerifyDomainIdentityCommand, VerifyEmailIdentityCommand, VerifyDomainDkimCommand, DeleteIdentityCommand, GetSendQuotaCommand, GetIdentityDkimAttributesCommand, CreateConfigurationSetCommand, DeleteConfigurationSetCommand, ListConfigurationSetsCommand, UpdateConfigurationSetTrackingOptionsCommand, CreateConfigurationSetEventDestinationCommand } from '@aws-sdk/client-ses';
+import { SNSClient, PublishCommand, SetSMSAttributesCommand, GetSMSAttributesCommand } from '@aws-sdk/client-sns';
 import { storage } from '../storage';
 import { decrypt } from './encryptionService';
 
@@ -26,8 +27,15 @@ export interface SendBulkEmailOptions {
   }>;
 }
 
+export interface SendSMSOptions {
+  phoneNumber: string;
+  message: string;
+  senderID?: string;
+}
+
 export class AWSService {
   private sesClient: SESClient | null = null;
+  private snsClient: SNSClient | null = null;
 
   async initialize(userId: string): Promise<void> {
     const credentials = await storage.getAwsCredentials(userId);
@@ -46,6 +54,14 @@ export class AWSService {
           secretAccessKey,
         },
       });
+
+      this.snsClient = new SNSClient({
+        region: credentials.region,
+        credentials: {
+          accessKeyId,
+          secretAccessKey,
+        },
+      });
     } catch (error) {
       throw new Error('Failed to decrypt AWS credentials. Please reconfigure your credentials.');
     }
@@ -56,6 +72,13 @@ export class AWSService {
       throw new Error('AWS service not initialized. Call initialize() first.');
     }
     return this.sesClient;
+  }
+
+  private ensureSNSInitialized(): SNSClient {
+    if (!this.snsClient) {
+      throw new Error('AWS SNS service not initialized. Call initialize() first.');
+    }
+    return this.snsClient;
   }
 
   async validateCredentials(config: AWSConfig): Promise<boolean> {
@@ -467,6 +490,46 @@ export class AWSService {
     });
 
     await sesClient.send(command);
+  }
+
+  async sendSMS(options: SendSMSOptions): Promise<string> {
+    const snsClient = this.ensureSNSInitialized();
+
+    const params: any = {
+      PhoneNumber: options.phoneNumber,
+      Message: options.message,
+    };
+
+    if (options.senderID) {
+      params.MessageAttributes = {
+        'AWS.SNS.SMS.SenderID': {
+          DataType: 'String',
+          StringValue: options.senderID,
+        },
+      };
+    }
+
+    const command = new PublishCommand(params);
+    const response = await snsClient.send(command);
+    return response.MessageId!;
+  }
+
+  async setSMSAttributes(attributes: { [key: string]: string }): Promise<void> {
+    const snsClient = this.ensureSNSInitialized();
+
+    const command = new SetSMSAttributesCommand({
+      attributes,
+    });
+
+    await snsClient.send(command);
+  }
+
+  async getSMSAttributes(): Promise<{ [key: string]: string }> {
+    const snsClient = this.ensureSNSInitialized();
+
+    const command = new GetSMSAttributesCommand({});
+    const response = await snsClient.send(command);
+    return response.attributes || {};
   }
 }
 
