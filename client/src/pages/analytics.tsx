@@ -41,10 +41,16 @@ export default function Analytics() {
     bounced: number;
     complained: number;
   }>>({
-    queryKey: ["/api/analytics/timeseries", { 
-      days: parseInt(timeRange), 
-      ...(selectedCampaign !== "all" && { campaignId: selectedCampaign })
-    }],
+    queryKey: ["/api/analytics/timeseries", timeRange, selectedCampaign],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        days: timeRange,
+        ...(selectedCampaign !== "all" && { campaignId: selectedCampaign })
+      });
+      const response = await fetch(`/api/analytics/timeseries?${params}`);
+      if (!response.ok) throw new Error('Failed to fetch timeseries data');
+      return response.json();
+    },
     enabled: !!user,
   });
 
