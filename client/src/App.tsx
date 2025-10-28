@@ -18,6 +18,7 @@ import SESDashboard from "@/pages/ses-dashboard";
 import Domains from "@/pages/domains";
 import EmailVerification from "@/pages/email-verification";
 import ConfigurationSets from "@/pages/configuration-sets";
+import SanitizeEmails from "@/pages/sanitize-emails";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -35,6 +36,7 @@ function Router() {
       <ProtectedRoute path="/domains" component={Domains} />
       <ProtectedRoute path="/email-verification" component={EmailVerification} />
       <ProtectedRoute path="/configuration-sets" component={ConfigurationSets} />
+      <ProtectedRoute path="/sanitize-emails" component={SanitizeEmails} />
       <ProtectedRoute path="/settings" component={Settings} />
       <Route component={NotFound} />
     </Switch>

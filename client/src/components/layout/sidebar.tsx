@@ -12,7 +12,8 @@ import {
   Shield,
   Globe,
   MailCheck,
-  Activity
+  Activity,
+  FilterX
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import DOMPurify from 'dompurify';
@@ -26,6 +27,7 @@ const navigation = [
   { name: "Send Email", href: "/send-email", icon: NotebookPen },
   { name: "Templates", href: "/templates", icon: FileText },
   { name: "Recipients", href: "/recipients", icon: Users },
+  { name: "Sanitize Emails", href: "/sanitize-emails", icon: FilterX },
   { name: "Analytics", href: "/analytics", icon: BarChart3 },
   { name: "Settings", href: "/settings", icon: Settings },
 ];

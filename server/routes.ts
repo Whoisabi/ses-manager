@@ -14,6 +14,7 @@ import {
   type InsertTrackingConfig
 } from "@shared/types";
 import { snsService } from "./services/snsService";
+import { EmailSanitizationService } from "./services/emailSanitizationService";
 import { z } from "zod";
 import multer from 'multer';
 import csvParser from 'csv-parser';
@@ -21,7 +22,12 @@ import { Readable } from 'stream';
 // @ts-ignore - sns-validator doesn't have type definitions
 import MessageValidator from 'sns-validator';
 
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({ 
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
+});
 
 // Request schemas
 const sendEmailSchema = z.object({
@@ -758,6 +764,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error uploading recipients:", error);
       res.status(500).json({ message: "Failed to upload recipients" });
+    }
+  });
+
+  // Email sanitization routes
+  app.post('/api/sanitize-emails', isAuthenticated, upload.single('csv'), async (req: AuthenticatedRequest, res) => {
+    try {
+      let emails: string[] = [];
+
+      if (req.file) {
+        const csvStream = Readable.from(req.file.buffer);
+        const emailsFromCsv: string[] = [];
+        
+        await new Promise((resolve, reject) => {
+          csvStream
+            .pipe(csvParser())
+            .on('data', (data) => {
+              if (data.email) {
+                emailsFromCsv.push(data.email);
+              }
+            })
+            .on('end', resolve)
+            .on('error', reject);
+        });
+        
+        emails = emailsFromCsv;
+      } else if (req.body.emails) {
+        if (typeof req.body.emails === 'string') {
+          emails = EmailSanitizationService.parseEmailsFromText(req.body.emails);
+        } else if (Array.isArray(req.body.emails)) {
+          emails = req.body.emails;
+        }
+      }
+
+      if (emails.length === 0) {
+        return res.status(400).json({ message: "No emails provided" });
+      }
+
+      const options = {
+        checkFormat: req.body.checkFormat !== false,
+        checkDisposable: req.body.checkDisposable !== false,
+        checkMx: req.body.checkMx !== false,
+        removeDuplicates: req.body.removeDuplicates !== false,
+      };
+
+      const results = await EmailSanitizationService.sanitizeEmailList(emails, options);
+      
+      res.json(results);
+    } catch (error) {
+      console.error("Error sanitizing emails:", error);
+      res.status(500).json({ message: "Failed to sanitize emails" });
+    }
+  });
+
+  app.post('/api/sanitize-emails/export', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { emails } = req.body;
+      
+      if (!emails || !Array.isArray(emails) || emails.length === 0) {
+        return res.status(400).json({ message: "No emails provided for export" });
+      }
+
+      const csv = EmailSanitizationService.generateCsv(emails);
+      
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename=sanitized-emails.csv');
+      res.send(csv);
+    } catch (error) {
+      console.error("Error exporting emails:", error);
+      res.status(500).json({ message: "Failed to export emails" });
     }
   });
 
