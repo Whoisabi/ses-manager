@@ -32,6 +32,7 @@ export default function Recipients() {
   const [selectedList, setSelectedList] = useState<any>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [activeTab, setActiveTab] = useState("lists");
 
   const form = useForm<RecipientListForm>({
     resolver: zodResolver(recipientListSchema),
@@ -208,6 +209,11 @@ export default function Recipients() {
     });
   };
 
+  const handleDoubleClickList = (list: any) => {
+    setSelectedList(list);
+    setActiveTab("manage");
+  };
+
   if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -315,7 +321,7 @@ export default function Recipients() {
         />
         
         <div className="p-6">
-          <Tabs defaultValue="lists" className="space-y-6">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
             <TabsList data-testid="tabs-recipients">
               <TabsTrigger value="lists" data-testid="tab-lists">Recipient Lists</TabsTrigger>
               <TabsTrigger value="manage" data-testid="tab-manage">Manage Recipients</TabsTrigger>
@@ -345,12 +351,14 @@ export default function Recipients() {
                         selectedList?.id === list.id ? 'ring-2 ring-primary' : ''
                       }`}
                       data-testid={`card-list-${list.id}`}
+                      onDoubleClick={() => handleDoubleClickList(list)}
                     >
                       <CardHeader>
                         <div className="flex items-start justify-between">
                           <div 
                             className="flex-1 cursor-pointer"
                             onClick={() => setSelectedList(list)}
+                            onDoubleClick={() => handleDoubleClickList(list)}
                           >
                             <CardTitle className="text-lg" data-testid={`text-list-name-${list.id}`}>
                               {list.name}
@@ -378,10 +386,11 @@ export default function Recipients() {
                         <div 
                           className="space-y-3 cursor-pointer"
                           onClick={() => setSelectedList(list)}
+                          onDoubleClick={() => handleDoubleClickList(list)}
                         >
                           <div className="flex items-center text-sm text-muted-foreground">
                             <Mail className="w-4 h-4 mr-2" />
-                            <span>Click to view recipients</span>
+                            <span>Double-click to view recipients</span>
                           </div>
                           
                           <div className="flex items-center text-xs text-muted-foreground">
