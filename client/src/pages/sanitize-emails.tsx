@@ -2,18 +2,23 @@ import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import Sidebar from "@/components/layout/sidebar";
-import Header from "@/components/layout/header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Upload, FileText, Download, CheckCircle, XCircle, AlertCircle } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Upload, FileText, Download, CheckCircle, XCircle, AlertCircle, UserPlus } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 
 interface EmailValidationResult {
   email: string;
@@ -32,17 +37,31 @@ interface SanitizationResults {
   };
 }
 
+const recipientListSchema = z.object({
+  name: z.string().min(1, "List name is required"),
+  description: z.string().optional(),
+});
+
 export default function SanitizeEmails() {
   const { toast } = useToast();
   const { user } = useAuth();
   const [emailText, setEmailText] = useState("");
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [results, setResults] = useState<SanitizationResults | null>(null);
+  const [isRecipientDialogOpen, setIsRecipientDialogOpen] = useState(false);
   const [options, setOptions] = useState({
     checkFormat: true,
     checkDisposable: true,
     checkMx: true,
     removeDuplicates: true,
+  });
+
+  const recipientForm = useForm<z.infer<typeof recipientListSchema>>({
+    resolver: zodResolver(recipientListSchema),
+    defaultValues: {
+      name: "",
+      description: "",
+    },
   });
 
   const sanitizeMutation = useMutation({
@@ -127,6 +146,47 @@ export default function SanitizeEmails() {
     },
   });
 
+  const createRecipientListMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof recipientListSchema>) => {
+      const listResponse: any = await apiRequest("POST", "/api/recipient-lists", data);
+      const listId = listResponse.id;
+
+      const csvContent = ['email\n', ...results!.validEmails.map(email => `${email}\n`)].join('');
+      const csvBlob = new Blob([csvContent], { type: 'text/csv' });
+      const csvFile = new File([csvBlob], 'valid-emails.csv', { type: 'text/csv' });
+
+      const formData = new FormData();
+      formData.append('csv', csvFile);
+
+      const uploadResponse = await fetch(`/api/recipient-lists/${listId}/upload`, {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error('Failed to upload recipients');
+      }
+
+      return await uploadResponse.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Success",
+        description: `Recipient list created with ${results!.validEmails.length} email(s)`,
+      });
+      recipientForm.reset();
+      setIsRecipientDialogOpen(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create recipient list",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleSanitize = () => {
     if (uploadFile) {
       sanitizeMutation.mutate({ file: uploadFile });
@@ -160,11 +220,14 @@ export default function SanitizeEmails() {
     exportMutation.mutate(emails);
   };
 
+  const handleCreateRecipientList = (data: z.infer<typeof recipientListSchema>) => {
+    createRecipientListMutation.mutate(data);
+  };
+
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header />
         <main className="flex-1 overflow-auto p-6">
           <div className="max-w-6xl mx-auto space-y-6">
             <div>
@@ -382,16 +445,27 @@ export default function SanitizeEmails() {
                           {results.validEmails.length} valid email(s) found
                         </p>
                         {results.validEmails.length > 0 && (
-                          <Button
-                            onClick={() => handleExport('valid')}
-                            variant="outline"
-                            size="sm"
-                            disabled={exportMutation.isPending}
-                            data-testid="button-export-valid"
-                          >
-                            <Download className="w-4 h-4 mr-2" />
-                            Export Valid
-                          </Button>
+                          <div className="flex gap-2">
+                            <Button
+                              onClick={() => setIsRecipientDialogOpen(true)}
+                              variant="outline"
+                              size="sm"
+                              data-testid="button-add-recipient"
+                            >
+                              <UserPlus className="w-4 h-4 mr-2" />
+                              Add Recipient
+                            </Button>
+                            <Button
+                              onClick={() => handleExport('valid')}
+                              variant="outline"
+                              size="sm"
+                              disabled={exportMutation.isPending}
+                              data-testid="button-export-valid"
+                            >
+                              <Download className="w-4 h-4 mr-2" />
+                              Export Valid
+                            </Button>
+                          </div>
                         )}
                       </div>
                       {results.validEmails.length > 0 ? (
@@ -482,6 +556,75 @@ export default function SanitizeEmails() {
           </div>
         </main>
       </div>
+
+      <Dialog open={isRecipientDialogOpen} onOpenChange={setIsRecipientDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create New Recipient List</DialogTitle>
+            <DialogDescription>
+              Create a new list to organize your email recipients
+            </DialogDescription>
+          </DialogHeader>
+          
+          <Form {...recipientForm}>
+            <form onSubmit={recipientForm.handleSubmit(handleCreateRecipientList)} className="space-y-4">
+              <FormField
+                control={recipientForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>List Name</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="Enter list name..."
+                        data-testid="input-recipient-list-name"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={recipientForm.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description (Optional)</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Enter list description..."
+                        data-testid="textarea-recipient-list-description"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="flex justify-end space-x-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsRecipientDialogOpen(false)}
+                  data-testid="button-cancel-recipient-list"
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  type="submit"
+                  disabled={createRecipientListMutation.isPending}
+                  data-testid="button-create-recipient-list"
+                >
+                  {createRecipientListMutation.isPending ? "Creating..." : "Create List"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
