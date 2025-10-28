@@ -15,6 +15,14 @@ import {
   type InsertEmailSend,
   type EmailTrackingEvent,
   type InsertEmailTrackingEvent,
+  type SmsTemplate,
+  type InsertSmsTemplate,
+  type SmsCampaign,
+  type InsertSmsCampaign,
+  type SmsSend,
+  type InsertSmsSend,
+  type SmsTrackingEvent,
+  type InsertSmsTrackingEvent,
   type Domain,
   type InsertDomain,
   type DnsRecord,
@@ -104,6 +112,45 @@ export interface IStorage {
     clicked: number;
     bounced: number;
     complained: number;
+  }>>;
+
+  // SMS template operations
+  getSmsTemplates(userId: string): Promise<SmsTemplate[]>;
+  getSmsTemplate(id: string, userId: string): Promise<SmsTemplate | undefined>;
+  createSmsTemplate(template: InsertSmsTemplate & { userId: string }): Promise<SmsTemplate>;
+  updateSmsTemplate(id: string, userId: string, template: Partial<InsertSmsTemplate>): Promise<SmsTemplate>;
+  deleteSmsTemplate(id: string, userId: string): Promise<void>;
+
+  // SMS campaign operations
+  getSmsCampaigns(userId: string): Promise<SmsCampaign[]>;
+  getSmsCampaign(id: string, userId: string): Promise<SmsCampaign | undefined>;
+  createSmsCampaign(campaign: InsertSmsCampaign & { userId: string }): Promise<SmsCampaign>;
+  updateSmsCampaign(id: string, userId: string, campaign: Partial<InsertSmsCampaign>): Promise<SmsCampaign>;
+  deleteSmsCampaign(id: string, userId: string): Promise<void>;
+
+  // SMS send operations
+  createSmsSend(smsSend: InsertSmsSend & { id?: string }): Promise<SmsSend>;
+  updateSmsSend(id: string, updates: Partial<InsertSmsSend>): Promise<SmsSend>;
+  getSmsSend(id: string): Promise<SmsSend | undefined>;
+  getSmsSends(userId: string, limit?: number): Promise<SmsSend[]>;
+  getSmsSendsByCampaign(campaignId: string): Promise<SmsSend[]>;
+
+  // SMS tracking operations
+  createSmsTrackingEvent(event: InsertSmsTrackingEvent): Promise<SmsTrackingEvent>;
+  getSmsTrackingEvents(smsSendId: string): Promise<SmsTrackingEvent[]>;
+
+  // SMS Analytics operations
+  getSmsStats(userId: string): Promise<{
+    totalSent: number;
+    totalDelivered: number;
+    totalFailed: number;
+  }>;
+
+  getSmsTimeSeriesData(userId: string, days: number, campaignId?: string): Promise<Array<{
+    date: string;
+    sent: number;
+    delivered: number;
+    failed: number;
   }>>;
 
   // Domain operations
@@ -1000,6 +1047,434 @@ export class DatabaseStorage implements IStorage {
         if (send.clicked_at) dataByDate[dateStr].clicked++;
         if (send.status === 'bounced' || send.status === 'failed' || send.bounced_at) dataByDate[dateStr].bounced++;
         if (send.status === 'complained' || send.complained_at) dataByDate[dateStr].complained++;
+      }
+    });
+
+    // Convert to array format
+    return Object.entries(dataByDate)
+      .map(([date, data]) => ({ date, ...data }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }
+
+  // SMS template operations
+
+  async getSmsTemplates(userId: string): Promise<SmsTemplate[]> {
+    const templates = await prisma.smsTemplate.findMany({
+      where: { user_id: userId },
+      orderBy: { created_at: 'desc' },
+    });
+    return templates.map(t => ({
+      id: t.id,
+      userId: t.user_id,
+      name: t.name,
+      content: t.content,
+      variables: t.variables,
+      createdAt: t.created_at,
+      updatedAt: t.updated_at,
+    }));
+  }
+
+  async getSmsTemplate(id: string, userId: string): Promise<SmsTemplate | undefined> {
+    const t = await prisma.smsTemplate.findUnique({ where: { id } });
+    if (!t || t.user_id !== userId) return undefined;
+    return {
+      id: t.id,
+      userId: t.user_id,
+      name: t.name,
+      content: t.content,
+      variables: t.variables,
+      createdAt: t.created_at,
+      updatedAt: t.updated_at,
+    };
+  }
+
+  async createSmsTemplate(template: InsertSmsTemplate & { userId: string }): Promise<SmsTemplate> {
+    const t = await prisma.smsTemplate.create({
+      data: {
+        user_id: template.userId,
+        name: template.name,
+        content: template.content,
+        variables: template.variables ?? [],
+        created_at: new Date(),
+        updated_at: new Date(),
+      },
+    });
+    return {
+      id: t.id,
+      userId: t.user_id,
+      name: t.name,
+      content: t.content,
+      variables: t.variables,
+      createdAt: t.created_at,
+      updatedAt: t.updated_at,
+    };
+  }
+
+  async updateSmsTemplate(id: string, userId: string, template: Partial<InsertSmsTemplate>): Promise<SmsTemplate> {
+    const updateData = {
+      ...template,
+      variables: template.variables ?? undefined,
+      updated_at: new Date(),
+    };
+    const t = await prisma.smsTemplate.update({
+      where: { id },
+      data: updateData,
+    });
+    return {
+      id: t.id,
+      userId: t.user_id,
+      name: t.name,
+      content: t.content,
+      variables: t.variables,
+      createdAt: t.created_at,
+      updatedAt: t.updated_at,
+    };
+  }
+
+  async deleteSmsTemplate(id: string, userId: string): Promise<void> {
+    await prisma.smsTemplate.delete({ where: { id } });
+  }
+
+  // SMS campaign operations
+
+  async getSmsCampaigns(userId: string): Promise<SmsCampaign[]> {
+    const campaigns = await prisma.smsCampaign.findMany({
+      where: { user_id: userId },
+      orderBy: { created_at: 'desc' },
+    });
+    return campaigns.map(c => ({
+      id: c.id,
+      userId: c.user_id,
+      name: c.name,
+      content: c.content,
+      templateId: c.template_id,
+      recipientListId: c.recipient_list_id,
+      status: c.status,
+      scheduledAt: c.scheduled_at,
+      sentAt: c.sent_at,
+      createdAt: c.created_at,
+      updatedAt: c.updated_at,
+    }));
+  }
+
+  async getSmsCampaign(id: string, userId: string): Promise<SmsCampaign | undefined> {
+    const c = await prisma.smsCampaign.findUnique({ where: { id } });
+    if (!c || c.user_id !== userId) return undefined;
+    return {
+      id: c.id,
+      userId: c.user_id,
+      name: c.name,
+      content: c.content,
+      templateId: c.template_id,
+      recipientListId: c.recipient_list_id,
+      status: c.status,
+      scheduledAt: c.scheduled_at,
+      sentAt: c.sent_at,
+      createdAt: c.created_at,
+      updatedAt: c.updated_at,
+    };
+  }
+
+  async createSmsCampaign(campaign: InsertSmsCampaign & { userId: string }): Promise<SmsCampaign> {
+    const c = await prisma.smsCampaign.create({
+      data: {
+        user_id: campaign.userId,
+        name: campaign.name,
+        content: campaign.content,
+        template_id: campaign.templateId,
+        recipient_list_id: campaign.recipientListId,
+        status: campaign.status ?? 'draft',
+        scheduled_at: campaign.scheduledAt,
+        sent_at: campaign.sentAt,
+        created_at: new Date(),
+        updated_at: new Date(),
+      },
+    });
+    return {
+      id: c.id,
+      userId: c.user_id,
+      name: c.name,
+      content: c.content,
+      templateId: c.template_id,
+      recipientListId: c.recipient_list_id,
+      status: c.status,
+      scheduledAt: c.scheduled_at,
+      sentAt: c.sent_at,
+      createdAt: c.created_at,
+      updatedAt: c.updated_at,
+    };
+  }
+
+  async updateSmsCampaign(id: string, userId: string, campaign: Partial<InsertSmsCampaign>): Promise<SmsCampaign> {
+    const c = await prisma.smsCampaign.update({
+      where: { id },
+      data: {
+        ...campaign,
+        updated_at: new Date(),
+      },
+    });
+    return {
+      id: c.id,
+      userId: c.user_id,
+      name: c.name,
+      content: c.content,
+      templateId: c.template_id,
+      recipientListId: c.recipient_list_id,
+      status: c.status,
+      scheduledAt: c.scheduled_at,
+      sentAt: c.sent_at,
+      createdAt: c.created_at,
+      updatedAt: c.updated_at,
+    };
+  }
+
+  async deleteSmsCampaign(id: string, userId: string): Promise<void> {
+    await prisma.smsCampaign.delete({ where: { id } });
+  }
+
+  // SMS send operations
+
+  async createSmsSend(smsSend: InsertSmsSend & { id?: string }): Promise<SmsSend> {
+    const sendData: any = {
+      user_id: smsSend.userId,
+      recipient_phone: smsSend.recipientPhone,
+      content: smsSend.content,
+      status: smsSend.status ?? 'pending',
+      message_id: smsSend.messageId,
+      sent_at: smsSend.sentAt,
+      delivered_at: smsSend.deliveredAt,
+      failed_at: smsSend.failedAt,
+      failure_reason: smsSend.failureReason,
+      created_at: new Date(),
+    };
+    if (smsSend.id) sendData.id = smsSend.id;
+    if (smsSend.campaignId) sendData.campaign_id = smsSend.campaignId;
+    const s = await prisma.smsSend.create({ data: sendData });
+    return {
+      id: s.id,
+      campaignId: s.campaign_id,
+      userId: s.user_id,
+      recipientPhone: s.recipient_phone,
+      content: s.content,
+      status: s.status,
+      messageId: s.message_id,
+      sentAt: s.sent_at,
+      deliveredAt: s.delivered_at,
+      failedAt: s.failed_at,
+      failureReason: s.failure_reason,
+      createdAt: s.created_at,
+    };
+  }
+
+  async updateSmsSend(id: string, updates: Partial<InsertSmsSend>): Promise<SmsSend> {
+    const updateData: any = {};
+    if (updates.recipientPhone !== undefined) updateData.recipient_phone = updates.recipientPhone;
+    if (updates.content !== undefined) updateData.content = updates.content;
+    if (updates.status !== undefined) updateData.status = updates.status;
+    if (updates.messageId !== undefined) updateData.message_id = updates.messageId;
+    if (updates.sentAt !== undefined) updateData.sent_at = updates.sentAt;
+    if (updates.deliveredAt !== undefined) updateData.delivered_at = updates.deliveredAt;
+    if (updates.failedAt !== undefined) updateData.failed_at = updates.failedAt;
+    if (updates.failureReason !== undefined) updateData.failure_reason = updates.failureReason;
+    if (updates.campaignId !== undefined) updateData.campaign_id = updates.campaignId;
+    if (updates.userId !== undefined) updateData.user_id = updates.userId;
+    
+    const s = await prisma.smsSend.update({
+      where: { id },
+      data: updateData,
+    });
+    return {
+      id: s.id,
+      campaignId: s.campaign_id,
+      userId: s.user_id,
+      recipientPhone: s.recipient_phone,
+      content: s.content,
+      status: s.status,
+      messageId: s.message_id,
+      sentAt: s.sent_at,
+      deliveredAt: s.delivered_at,
+      failedAt: s.failed_at,
+      failureReason: s.failure_reason,
+      createdAt: s.created_at,
+    };
+  }
+
+  async getSmsSend(id: string): Promise<SmsSend | undefined> {
+    const s = await prisma.smsSend.findUnique({ where: { id } });
+    if (!s) return undefined;
+    return {
+      id: s.id,
+      campaignId: s.campaign_id,
+      userId: s.user_id,
+      recipientPhone: s.recipient_phone,
+      content: s.content,
+      status: s.status,
+      messageId: s.message_id,
+      sentAt: s.sent_at,
+      deliveredAt: s.delivered_at,
+      failedAt: s.failed_at,
+      failureReason: s.failure_reason,
+      createdAt: s.created_at,
+    };
+  }
+
+  async getSmsSends(userId: string, limit = 50): Promise<SmsSend[]> {
+    const sends = await prisma.smsSend.findMany({
+      where: {
+        user_id: userId,
+      },
+      orderBy: { created_at: 'desc' },
+      take: limit,
+    });
+    return sends.map(s => ({
+      id: s.id,
+      campaignId: s.campaign_id,
+      userId: s.user_id,
+      recipientPhone: s.recipient_phone,
+      content: s.content,
+      status: s.status,
+      messageId: s.message_id,
+      sentAt: s.sent_at,
+      deliveredAt: s.delivered_at,
+      failedAt: s.failed_at,
+      failureReason: s.failure_reason,
+      createdAt: s.created_at,
+    }));
+  }
+
+  async getSmsSendsByCampaign(campaignId: string): Promise<SmsSend[]> {
+    const sends = await prisma.smsSend.findMany({
+      where: { campaign_id: campaignId },
+      orderBy: { created_at: 'desc' },
+    });
+    return sends.map(s => ({
+      id: s.id,
+      campaignId: s.campaign_id,
+      userId: s.user_id,
+      recipientPhone: s.recipient_phone,
+      content: s.content,
+      status: s.status,
+      messageId: s.message_id,
+      sentAt: s.sent_at,
+      deliveredAt: s.delivered_at,
+      failedAt: s.failed_at,
+      failureReason: s.failure_reason,
+      createdAt: s.created_at,
+    }));
+  }
+
+  // SMS tracking operations
+
+  async createSmsTrackingEvent(event: InsertSmsTrackingEvent): Promise<SmsTrackingEvent> {
+    const t = await prisma.smsTrackingEvent.create({
+      data: {
+        sms_send_id: event.smsSendId,
+        event_type: event.eventType,
+        event_data: event.eventData as any,
+        timestamp: new Date(),
+      },
+    });
+    return {
+      id: t.id,
+      smsSendId: t.sms_send_id,
+      eventType: t.event_type,
+      eventData: t.event_data,
+      timestamp: t.timestamp,
+    };
+  }
+
+  async getSmsTrackingEvents(smsSendId: string): Promise<SmsTrackingEvent[]> {
+    const events = await prisma.smsTrackingEvent.findMany({
+      where: { sms_send_id: smsSendId },
+      orderBy: { timestamp: 'asc' },
+    });
+    return events.map(t => ({
+      id: t.id,
+      smsSendId: t.sms_send_id,
+      eventType: t.event_type,
+      eventData: t.event_data,
+      timestamp: t.timestamp,
+    }));
+  }
+
+  // SMS Analytics operations
+
+  async getSmsStats(userId: string): Promise<{
+    totalSent: number;
+    totalDelivered: number;
+    totalFailed: number;
+  }> {
+    const totalSent = await prisma.smsSend.count({
+      where: { user_id: userId },
+    });
+    const totalDelivered = await prisma.smsSend.count({
+      where: { user_id: userId, status: 'delivered' },
+    });
+    const totalFailed = await prisma.smsSend.count({
+      where: { 
+        user_id: userId, 
+        status: 'failed'
+      },
+    });
+    return {
+      totalSent,
+      totalDelivered,
+      totalFailed,
+    };
+  }
+
+  async getSmsTimeSeriesData(userId: string, days: number, campaignId?: string): Promise<Array<{
+    date: string;
+    sent: number;
+    delivered: number;
+    failed: number;
+  }>> {
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+    startDate.setHours(0, 0, 0, 0);
+
+    // Build where clause based on campaign filter
+    const whereClause: any = {
+      user_id: userId,
+      created_at: { gte: startDate }
+    };
+
+    if (campaignId) {
+      whereClause.campaign_id = campaignId;
+    }
+
+    // Get all SMS sends for the date range
+    const smsSends = await prisma.smsSend.findMany({
+      where: whereClause,
+      orderBy: { created_at: 'asc' },
+    });
+
+    // Group by date
+    const dataByDate: Record<string, {
+      sent: number;
+      delivered: number;
+      failed: number;
+    }> = {};
+
+    // Initialize all dates in range
+    for (let i = 0; i < days; i++) {
+      const date = new Date();
+      date.setDate(date.getDate() - (days - 1 - i));
+      const dateStr = date.toISOString().split('T')[0];
+      dataByDate[dateStr] = {
+        sent: 0,
+        delivered: 0,
+        failed: 0,
+      };
+    }
+
+    // Aggregate data by date
+    smsSends.forEach(send => {
+      const dateStr = send.created_at.toISOString().split('T')[0];
+      if (dataByDate[dateStr]) {
+        dataByDate[dateStr].sent++;
+        if (send.status === 'delivered' || send.delivered_at) dataByDate[dateStr].delivered++;
+        if (send.status === 'failed' || send.failed_at) dataByDate[dateStr].failed++;
       }
     });
 
