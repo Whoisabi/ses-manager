@@ -733,10 +733,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
               recipients.push({
                 listId,
                 email: data.email,
+                phoneNumber: data.phoneNumber || data.phone_number || data.phone || null,
                 firstName: data.firstName || data.first_name || null,
                 lastName: data.lastName || data.last_name || null,
                 metadata: Object.keys(data).reduce((acc, key) => {
-                  if (!['email', 'firstName', 'first_name', 'lastName', 'last_name'].includes(key)) {
+                  if (!['email', 'phoneNumber', 'phone_number', 'phone', 'firstName', 'first_name', 'lastName', 'last_name'].includes(key)) {
                     acc[key] = data[key];
                   }
                   return acc;
@@ -1455,6 +1456,319 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Error disabling tracking:", error);
       const errorMessage = error instanceof Error ? error.message : "Failed to disable tracking";
       res.status(500).json({ message: errorMessage });
+    }
+  });
+
+  // ========================================
+  // SMS ROUTES
+  // ========================================
+
+  // SMS Templates
+  app.get('/api/sms/templates', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.id;
+      const templates = await storage.getSmsTemplates(userId);
+      res.json(templates);
+    } catch (error) {
+      console.error("Error fetching SMS templates:", error);
+      res.status(500).json({ message: "Failed to fetch SMS templates" });
+    }
+  });
+
+  app.get('/api/sms/templates/:id', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.id;
+      const { id } = req.params;
+      const template = await storage.getSmsTemplate(id, userId);
+      
+      if (!template) {
+        return res.status(404).json({ message: "SMS template not found" });
+      }
+      
+      res.json(template);
+    } catch (error) {
+      console.error("Error fetching SMS template:", error);
+      res.status(500).json({ message: "Failed to fetch SMS template" });
+    }
+  });
+
+  app.post('/api/sms/templates', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.id;
+      const data = req.body;
+      
+      const template = await storage.createSmsTemplate({
+        ...data,
+        userId,
+      });
+      
+      res.status(201).json(template);
+    } catch (error) {
+      console.error("Error creating SMS template:", error);
+      res.status(500).json({ message: "Failed to create SMS template" });
+    }
+  });
+
+  app.put('/api/sms/templates/:id', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.id;
+      const { id } = req.params;
+      const data = req.body;
+      
+      const template = await storage.updateSmsTemplate(id, userId, data);
+      res.json(template);
+    } catch (error) {
+      console.error("Error updating SMS template:", error);
+      res.status(500).json({ message: "Failed to update SMS template" });
+    }
+  });
+
+  app.delete('/api/sms/templates/:id', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.id;
+      const { id } = req.params;
+      
+      await storage.deleteSmsTemplate(id, userId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting SMS template:", error);
+      res.status(500).json({ message: "Failed to delete SMS template" });
+    }
+  });
+
+  // SMS Campaigns
+  app.get('/api/sms/campaigns', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.id;
+      const campaigns = await storage.getSmsCampaigns(userId);
+      res.json(campaigns);
+    } catch (error) {
+      console.error("Error fetching SMS campaigns:", error);
+      res.status(500).json({ message: "Failed to fetch SMS campaigns" });
+    }
+  });
+
+  app.get('/api/sms/campaigns/:id', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.id;
+      const { id } = req.params;
+      const campaign = await storage.getSmsCampaign(id, userId);
+      
+      if (!campaign) {
+        return res.status(404).json({ message: "SMS campaign not found" });
+      }
+      
+      res.json(campaign);
+    } catch (error) {
+      console.error("Error fetching SMS campaign:", error);
+      res.status(500).json({ message: "Failed to fetch SMS campaign" });
+    }
+  });
+
+  app.post('/api/sms/campaigns', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.id;
+      const data = req.body;
+      
+      const campaign = await storage.createSmsCampaign({
+        ...data,
+        userId,
+      });
+      
+      res.status(201).json(campaign);
+    } catch (error) {
+      console.error("Error creating SMS campaign:", error);
+      res.status(500).json({ message: "Failed to create SMS campaign" });
+    }
+  });
+
+  app.put('/api/sms/campaigns/:id', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.id;
+      const { id } = req.params;
+      const data = req.body;
+      
+      const campaign = await storage.updateSmsCampaign(id, userId, data);
+      res.json(campaign);
+    } catch (error) {
+      console.error("Error updating SMS campaign:", error);
+      res.status(500).json({ message: "Failed to update SMS campaign" });
+    }
+  });
+
+  app.delete('/api/sms/campaigns/:id', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.id;
+      const { id } = req.params;
+      
+      await storage.deleteSmsCampaign(id, userId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting SMS campaign:", error);
+      res.status(500).json({ message: "Failed to delete SMS campaign" });
+    }
+  });
+
+  // Send SMS Campaign
+  app.post('/api/sms/campaigns/:id/send', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.id;
+      const { id } = req.params;
+      
+      const campaign = await storage.getSmsCampaign(id, userId);
+      if (!campaign) {
+        return res.status(404).json({ message: "SMS campaign not found" });
+      }
+
+      if (!campaign.recipientListId) {
+        return res.status(400).json({ message: "No recipient list selected for campaign" });
+      }
+
+      await awsService.initialize(userId);
+      const credentials = await storage.getAwsCredentials(userId);
+      if (!credentials) {
+        return res.status(400).json({ message: "AWS credentials not configured" });
+      }
+
+      const { decrypt } = await import("./services/encryptionService");
+      const { createSMSService } = await import("./services/sms");
+      
+      const smsService = await createSMSService({
+        region: credentials.region,
+        accessKeyId: decrypt(credentials.encryptedAccessKey),
+        secretAccessKey: decrypt(credentials.encryptedSecretKey),
+      });
+
+      const recipients = await storage.getRecipients(campaign.recipientListId, userId);
+      const phoneRecipients = recipients.filter(r => r.phoneNumber);
+
+      if (phoneRecipients.length === 0) {
+        return res.status(400).json({ message: "No recipients with phone numbers in the list" });
+      }
+
+      const results = [];
+      for (const recipient of phoneRecipients) {
+        const result = await smsService.sendSMS({
+          phoneNumber: recipient.phoneNumber!,
+          message: campaign.message,
+          smsType: campaign.smsType as 'Promotional' | 'Transactional',
+        });
+
+        const smsSend = await storage.createSmsSend({
+          userId,
+          campaignId: campaign.id,
+          recipientPhone: recipient.phoneNumber!,
+          message: campaign.message,
+          smsType: campaign.smsType,
+          status: result.success ? 'sent' : 'failed',
+          messageId: result.messageId || null,
+          sentAt: result.success ? new Date() : null,
+          failedAt: result.success ? null : new Date(),
+          failureReason: result.error || null,
+          estimatedCost: result.estimatedCost || null,
+        });
+
+        results.push(smsSend);
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
+      await storage.updateSmsCampaign(campaign.id, userId, {
+        status: 'sent',
+        sentAt: new Date(),
+      });
+
+      smsService.destroy();
+      
+      res.json({
+        success: true,
+        totalSent: results.filter(r => r.status === 'sent').length,
+        totalFailed: results.filter(r => r.status === 'failed').length,
+        results,
+      });
+    } catch (error) {
+      console.error("Error sending SMS campaign:", error);
+      res.status(500).json({ message: "Failed to send SMS campaign" });
+    }
+  });
+
+  // Single SMS Send
+  app.post('/api/sms/send', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.id;
+      const { phoneNumber, message, smsType } = req.body;
+
+      if (!phoneNumber || !message) {
+        return res.status(400).json({ message: "Phone number and message are required" });
+      }
+
+      await awsService.initialize(userId);
+      const credentials = await storage.getAwsCredentials(userId);
+      if (!credentials) {
+        return res.status(400).json({ message: "AWS credentials not configured" });
+      }
+
+      const { decrypt } = await import("./services/encryptionService");
+      const { createSMSService } = await import("./services/sms");
+      
+      const smsService = await createSMSService({
+        region: credentials.region,
+        accessKeyId: decrypt(credentials.encryptedAccessKey),
+        secretAccessKey: decrypt(credentials.encryptedSecretKey),
+      });
+
+      const result = await smsService.sendSMS({
+        phoneNumber,
+        message,
+        smsType: smsType || 'Promotional',
+      });
+
+      const smsSend = await storage.createSmsSend({
+        userId,
+        recipientPhone: phoneNumber,
+        message,
+        smsType: smsType || 'Promotional',
+        status: result.success ? 'sent' : 'failed',
+        messageId: result.messageId || null,
+        sentAt: result.success ? new Date() : null,
+        failedAt: result.success ? null : new Date(),
+        failureReason: result.error || null,
+        estimatedCost: result.estimatedCost || null,
+      });
+
+      smsService.destroy();
+      
+      res.json({
+        success: result.success,
+        smsSend,
+        error: result.error,
+      });
+    } catch (error) {
+      console.error("Error sending SMS:", error);
+      res.status(500).json({ message: "Failed to send SMS" });
+    }
+  });
+
+  // SMS Analytics
+  app.get('/api/sms/analytics', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.id;
+      const stats = await storage.getSmsStats(userId);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching SMS analytics:", error);
+      res.status(500).json({ message: "Failed to fetch SMS analytics" });
+    }
+  });
+
+  app.get('/api/sms/sends', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.id;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 100;
+      const sends = await storage.getSmsSends(userId, limit);
+      res.json(sends);
+    } catch (error) {
+      console.error("Error fetching SMS sends:", error);
+      res.status(500).json({ message: "Failed to fetch SMS sends" });
     }
   });
 

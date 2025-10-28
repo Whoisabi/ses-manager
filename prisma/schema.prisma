@@ -26,6 +26,7 @@ model User {
   tracking_config    TrackingConfig?
   sms_sends          SmsSend[]
   sms_campaigns      SmsCampaign[]
+  sms_templates      SmsTemplate[]
 
   @@map("users")
 }
@@ -248,19 +249,36 @@ model WebhookLog {
   @@map("webhook_logs")
 }
 
+model SmsTemplate {
+  id         String        @id @default(uuid())
+  user_id    String
+  name       String
+  message    String
+  variables  String[]
+  sms_type   String        @default("Promotional")
+  created_at DateTime      @default(now())
+  updated_at DateTime      @updatedAt
+  user       User          @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  campaigns  SmsCampaign[]
+
+  @@map("sms_templates")
+}
+
 model SmsCampaign {
-  id                String    @id @default(uuid())
+  id                String       @id @default(uuid())
   user_id           String
   name              String
   message           String
+  template_id       String?
   recipient_list_id String?
-  sms_type          String    @default("Promotional")
-  status            String    @default("draft")
+  sms_type          String       @default("Promotional")
+  status            String       @default("draft")
   scheduled_at      DateTime?
   sent_at           DateTime?
-  created_at        DateTime  @default(now())
-  updated_at        DateTime  @updatedAt
-  user              User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  created_at        DateTime     @default(now())
+  updated_at        DateTime     @updatedAt
+  user              User         @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  template          SmsTemplate? @relation(fields: [template_id], references: [id])
   sms_sends         SmsSend[]
 
   @@map("sms_campaigns")

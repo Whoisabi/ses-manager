@@ -13,7 +13,9 @@ import {
   Globe,
   MailCheck,
   Activity,
-  FilterX
+  FilterX,
+  MessageSquare,
+  Send
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import DOMPurify from 'dompurify';
@@ -28,6 +30,9 @@ const navigation = [
   { name: "Templates", href: "/templates", icon: FileText },
   { name: "Recipients", href: "/recipients", icon: Users },
   { name: "Sanitize Emails", href: "/sanitize-emails", icon: FilterX },
+  { name: "Send SMS", href: "/send-sms", icon: Send },
+  { name: "SMS Templates", href: "/sms-templates", icon: MessageSquare },
+  { name: "SMS Campaigns", href: "/sms-campaigns", icon: MessageSquare },
   { name: "Analytics", href: "/analytics", icon: BarChart3 },
   { name: "Settings", href: "/settings", icon: Settings },
 ];

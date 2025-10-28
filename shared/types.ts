@@ -47,6 +47,7 @@ export type Recipient = {
   id: string;
   listId: string;
   email: string;
+  phoneNumber: string | null;
   firstName: string | null;
   lastName: string | null;
   metadata: Prisma.JsonValue | null;
@@ -171,6 +172,7 @@ export type InsertRecipientList = {
 export type InsertRecipient = {
   listId: string;
   email: string;
+  phoneNumber?: string | null;
   firstName?: string | null;
   lastName?: string | null;
   metadata?: Prisma.JsonValue | null;
@@ -235,6 +237,96 @@ export type InsertBounceComplaintEvent = {
   reason?: string | null;
   diagnosticCode?: string | null;
   rawData?: Prisma.JsonValue | null;
+};
+
+export type SmsTemplate = {
+  id: string;
+  userId: string;
+  name: string;
+  message: string;
+  variables: string[];
+  smsType: string;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+};
+
+export type SmsCampaign = {
+  id: string;
+  userId: string;
+  name: string;
+  message: string;
+  templateId: string | null;
+  recipientListId: string | null;
+  smsType: string;
+  status: string;
+  scheduledAt: Date | null;
+  sentAt: Date | null;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+};
+
+export type SmsSend = {
+  id: string;
+  userId: string;
+  campaignId: string | null;
+  recipientPhone: string;
+  message: string;
+  smsType: string;
+  status: string;
+  messageId: string | null;
+  sentAt: Date | null;
+  deliveredAt: Date | null;
+  failedAt: Date | null;
+  failureReason: string | null;
+  estimatedCost: number | null;
+  createdAt: Date | null;
+};
+
+export type SmsTrackingEvent = {
+  id: string;
+  smsSendId: string;
+  eventType: string;
+  eventData: Prisma.JsonValue | null;
+  timestamp: Date | null;
+};
+
+export type InsertSmsTemplate = {
+  name: string;
+  message: string;
+  variables?: string[];
+  smsType?: string;
+};
+
+export type InsertSmsCampaign = {
+  name: string;
+  message: string;
+  templateId?: string | null;
+  recipientListId?: string | null;
+  smsType?: string;
+  status?: string;
+  scheduledAt?: Date | null;
+  sentAt?: Date | null;
+};
+
+export type InsertSmsSend = {
+  userId: string;
+  campaignId?: string | null;
+  recipientPhone: string;
+  message: string;
+  smsType?: string;
+  status?: string;
+  messageId?: string | null;
+  sentAt?: Date | null;
+  deliveredAt?: Date | null;
+  failedAt?: Date | null;
+  failureReason?: string | null;
+  estimatedCost?: number | null;
+};
+
+export type InsertSmsTrackingEvent = {
+  smsSendId: string;
+  eventType: string;
+  eventData?: Prisma.JsonValue | null;
 };
 
 export type TrackingConfig = {
