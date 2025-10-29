@@ -12,6 +12,16 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Phone, CheckCircle2, Clock, Plus, Trash2, Info, Send, ShieldCheck } from "lucide-react";
 
 export default function SmsDashboard() {
@@ -19,9 +29,11 @@ export default function SmsDashboard() {
   const { user } = useAuth();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isVerifyDialogOpen, setIsVerifyDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [newPhoneNumber, setNewPhoneNumber] = useState("");
   const [verificationCode, setVerificationCode] = useState("");
   const [selectedPhoneId, setSelectedPhoneId] = useState<string>("");
+  const [phoneToDelete, setPhoneToDelete] = useState<{ id: string; phoneNumber: string } | null>(null);
 
   const { data: smsStats } = useQuery<{
     totalSent: number;
@@ -162,8 +174,15 @@ export default function SmsDashboard() {
   };
 
   const handleDeletePhoneNumber = (id: string, phoneNumber: string) => {
-    if (confirm(`Are you sure you want to delete ${phoneNumber}?`)) {
-      deletePhoneNumberMutation.mutate(id);
+    setPhoneToDelete({ id, phoneNumber });
+    setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (phoneToDelete) {
+      deletePhoneNumberMutation.mutate(phoneToDelete.id);
+      setIsDeleteDialogOpen(false);
+      setPhoneToDelete(null);
     }
   };
 
@@ -427,6 +446,30 @@ export default function SmsDashboard() {
             </div>
           </DialogContent>
         </Dialog>
+
+        <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => {
+          setIsDeleteDialogOpen(open);
+          if (!open) setPhoneToDelete(null);
+        }}>
+          <AlertDialogContent data-testid="dialog-delete-confirmation">
+            <AlertDialogHeader>
+              <AlertDialogTitle data-testid="text-delete-title">Delete Phone Number</AlertDialogTitle>
+              <AlertDialogDescription data-testid="text-delete-description">
+                Are you sure you want to delete {phoneToDelete?.phoneNumber}? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={confirmDelete}
+                data-testid="button-confirm-delete"
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </main>
     </div>
   );
