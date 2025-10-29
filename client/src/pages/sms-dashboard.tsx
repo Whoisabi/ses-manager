@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -12,13 +12,16 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { MessageSquare, Phone, CheckCircle2, Clock, AlertCircle, Plus, Trash2, Info } from "lucide-react";
+import { Phone, CheckCircle2, Clock, Plus, Trash2, Info, Send, ShieldCheck } from "lucide-react";
 
 export default function SmsDashboard() {
   const { toast } = useToast();
-  const { user, isLoading } = useAuth();
+  const { user } = useAuth();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isVerifyDialogOpen, setIsVerifyDialogOpen] = useState(false);
   const [newPhoneNumber, setNewPhoneNumber] = useState("");
+  const [verificationCode, setVerificationCode] = useState("");
+  const [selectedPhoneId, setSelectedPhoneId] = useState<string>("");
 
   const { data: smsStats } = useQuery<{
     totalSent: number;
@@ -29,40 +32,29 @@ export default function SmsDashboard() {
     enabled: !!user,
   });
 
-  const { data: phoneNumbers = [], isLoading: phoneNumbersLoading, refetch: refetchPhoneNumbers } = useQuery<Array<{
+  const { data: phoneNumbers = [], isLoading: phoneNumbersLoading } = useQuery<Array<{
     id: string;
     phoneNumber: string;
     status: string;
+    verifiedAt: string | null;
     createdAt: string;
   }>>({
-    queryKey: ["/api/sms/phone-numbers"],
+    queryKey: ["/api/sms/recipient-phone-numbers"],
     enabled: !!user,
-  });
-
-  const { data: awsOriginationNumbers = [], isLoading: awsNumbersLoading } = useQuery<Array<{
-    phoneNumber: string;
-    status: string;
-    iso2CountryCode: string;
-    numberCapabilities: string[];
-    routeType: string;
-  }>>({
-    queryKey: ["/api/sms/aws-origination-numbers"],
-    enabled: !!user,
-    retry: false,
   });
 
   const addPhoneNumberMutation = useMutation({
     mutationFn: async (phoneNumber: string) => {
-      const response = await apiRequest("POST", "/api/sms/phone-numbers", { phoneNumber });
+      const response = await apiRequest("POST", "/api/sms/recipient-phone-numbers", { phoneNumber });
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/sms/phone-numbers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/sms/recipient-phone-numbers"] });
       setIsAddDialogOpen(false);
       setNewPhoneNumber("");
       toast({
         title: "Phone Number Added",
-        description: "Phone number has been added successfully.",
+        description: "A verification code has been sent to the phone number.",
       });
     },
     onError: (error: any) => {
@@ -74,13 +66,57 @@ export default function SmsDashboard() {
     },
   });
 
-  const deletePhoneNumberMutation = useMutation({
+  const sendVerificationMutation = useMutation({
     mutationFn: async (id: string) => {
-      const response = await apiRequest("DELETE", `/api/sms/phone-numbers/${id}`);
+      const response = await apiRequest("POST", `/api/sms/recipient-phone-numbers/${id}/send-verification`, {});
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/sms/phone-numbers"] });
+      toast({
+        title: "Verification Code Sent",
+        description: "A new verification code has been sent to your phone.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to send verification code",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const verifyPhoneNumberMutation = useMutation({
+    mutationFn: async ({ id, code }: { id: string; code: string }) => {
+      const response = await apiRequest("POST", `/api/sms/recipient-phone-numbers/${id}/verify`, { code });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/sms/recipient-phone-numbers"] });
+      setIsVerifyDialogOpen(false);
+      setVerificationCode("");
+      setSelectedPhoneId("");
+      toast({
+        title: "Phone Number Verified",
+        description: "Phone number has been verified successfully.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Verification Failed",
+        description: error.message || "Invalid verification code",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deletePhoneNumberMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiRequest("DELETE", `/api/sms/recipient-phone-numbers/${id}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/sms/recipient-phone-numbers"] });
       toast({
         title: "Phone Number Deleted",
         description: "Phone number has been removed successfully.",
@@ -107,33 +143,29 @@ export default function SmsDashboard() {
     addPhoneNumberMutation.mutate(newPhoneNumber);
   };
 
+  const handleVerifyPhoneNumber = () => {
+    if (!verificationCode || verificationCode.length !== 6) {
+      toast({
+        title: "Invalid Code",
+        description: "Please enter a valid 6-digit verification code",
+        variant: "destructive",
+      });
+      return;
+    }
+    verifyPhoneNumberMutation.mutate({ id: selectedPhoneId, code: verificationCode });
+  };
+
+  const openVerifyDialog = (id: string) => {
+    setSelectedPhoneId(id);
+    setVerificationCode("");
+    setIsVerifyDialogOpen(true);
+  };
+
   const handleDeletePhoneNumber = (id: string, phoneNumber: string) => {
     if (confirm(`Are you sure you want to delete ${phoneNumber}?`)) {
       deletePhoneNumberMutation.mutate(id);
     }
   };
-
-  useEffect(() => {
-    if (!isLoading && !user) {
-      toast({
-        title: "Unauthorized",
-        description: "You are logged out. Logging in again...",
-        variant: "destructive",
-      });
-      setTimeout(() => {
-        window.location.href = "/login";
-      }, 500);
-      return;
-    }
-  }, [user, isLoading, toast]);
-
-  if (isLoading) {
-    return (
-      <div className="flex h-screen items-center justify-center" data-testid="status-loading">
-        <p data-testid="text-loading">Loading...</p>
-      </div>
-    );
-  }
 
   const verifiedNumbers = phoneNumbers.filter(p => p.status === "verified");
   const pendingNumbers = phoneNumbers.filter(p => p.status === "pending");
@@ -145,7 +177,7 @@ export default function SmsDashboard() {
       <main className="flex-1 overflow-auto">
         <Header 
           title="SMS Dashboard" 
-          description="Manage your AWS SNS phone numbers and monitor SMS sending"
+          description="Manage recipient phone numbers and verify them for SMS campaigns"
         />
         
         <div className="p-6 space-y-6">
@@ -169,7 +201,7 @@ export default function SmsDashboard() {
             <Card data-testid="card-verified-numbers">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Verified Phone Numbers
+                  Verified Recipients
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -177,7 +209,7 @@ export default function SmsDashboard() {
                   {verifiedNumbers.length}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Active sender numbers
+                  {pendingNumbers.length} pending verification
                 </p>
               </CardContent>
             </Card>
@@ -201,8 +233,8 @@ export default function SmsDashboard() {
 
           <div className="flex justify-between items-center">
             <div>
-              <h2 className="text-2xl font-bold">Sender Phone Numbers</h2>
-              <p className="text-muted-foreground">Manage phone numbers for sending SMS</p>
+              <h2 className="text-2xl font-bold">Recipient Phone Numbers</h2>
+              <p className="text-muted-foreground">Add and verify recipient phone numbers for SMS campaigns</p>
             </div>
             
             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
@@ -212,66 +244,14 @@ export default function SmsDashboard() {
                   Add Phone Number
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-2xl">
+              <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Add Sender Phone Number</DialogTitle>
+                  <DialogTitle>Add Recipient Phone Number</DialogTitle>
                   <DialogDescription>
-                    Select a phone number from your AWS SNS origination numbers or enter manually
+                    Add a phone number to send SMS campaigns. A verification code will be sent automatically.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 pt-4">
-                  {awsOriginationNumbers.length > 0 && (
-                    <div>
-                      <Label className="mb-2 block">Select from AWS Origination Numbers</Label>
-                      <div className="space-y-2 max-h-60 overflow-y-auto border rounded-lg p-2">
-                        {awsOriginationNumbers
-                          .filter(awsNum => !phoneNumbers.some(pn => pn.phoneNumber === awsNum.phoneNumber))
-                          .map((awsNumber, index) => (
-                            <div 
-                              key={index} 
-                              className="flex items-center justify-between p-2 hover:bg-accent rounded cursor-pointer"
-                              onClick={() => setNewPhoneNumber(awsNumber.phoneNumber)}
-                            >
-                              <div className="flex items-center gap-2">
-                                <input
-                                  type="radio"
-                                  name="awsNumber"
-                                  checked={newPhoneNumber === awsNumber.phoneNumber}
-                                  onChange={() => setNewPhoneNumber(awsNumber.phoneNumber)}
-                                  className="cursor-pointer"
-                                />
-                                <div>
-                                  <p className="font-medium text-sm">{awsNumber.phoneNumber}</p>
-                                  <p className="text-xs text-muted-foreground">
-                                    {awsNumber.iso2CountryCode} • {awsNumber.routeType}
-                                  </p>
-                                </div>
-                              </div>
-                              <Badge variant="default" className="text-xs">
-                                {awsNumber.status}
-                              </Badge>
-                            </div>
-                          ))}
-                        {awsOriginationNumbers.filter(awsNum => !phoneNumbers.some(pn => pn.phoneNumber === awsNum.phoneNumber)).length === 0 && (
-                          <p className="text-sm text-muted-foreground text-center py-4">
-                            All AWS origination numbers have been added
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                  
-                  <div className="relative">
-                    <div className="absolute inset-0 flex items-center">
-                      <span className="w-full border-t" />
-                    </div>
-                    <div className="relative flex justify-center text-xs uppercase">
-                      <span className="bg-background px-2 text-muted-foreground">
-                        Or enter manually
-                      </span>
-                    </div>
-                  </div>
-
                   <div>
                     <Label htmlFor="phoneNumber">Phone Number</Label>
                     <Input
@@ -283,7 +263,7 @@ export default function SmsDashboard() {
                       data-testid="input-phone-number"
                     />
                     <p className="text-xs text-muted-foreground mt-1">
-                      Must be in E.164 format and configured in AWS SNS
+                      Must be in E.164 format (includes country code with +)
                     </p>
                   </div>
                   <Button 
@@ -292,7 +272,7 @@ export default function SmsDashboard() {
                     disabled={addPhoneNumberMutation.isPending || !newPhoneNumber}
                     data-testid="button-submit-phone"
                   >
-                    {addPhoneNumberMutation.isPending ? "Verifying & Adding..." : "Add Phone Number"}
+                    {addPhoneNumberMutation.isPending ? "Adding & Sending Code..." : "Add Phone Number"}
                   </Button>
                 </div>
               </DialogContent>
@@ -303,55 +283,20 @@ export default function SmsDashboard() {
             <Info className="h-4 w-4" />
             <AlertDescription>
               <div className="space-y-2">
-                <p className="font-semibold">How to add SMS sender phone numbers:</p>
+                <p className="font-semibold">How recipient phone number verification works:</p>
                 <ol className="list-decimal list-inside space-y-1 text-sm">
-                  <li>Go to <a href="https://console.aws.amazon.com/sns" target="_blank" rel="noopener noreferrer" className="text-primary underline">AWS SNS Console</a></li>
-                  <li>Navigate to <strong>Text messaging (SMS)</strong> → <strong>Phone numbers</strong></li>
-                  <li>Request an origination number (10DLC for US, toll-free, or international number)</li>
-                  <li>Wait for number to be activated (status: ACTIVE)</li>
-                  <li>Come back here and add the activated phone number below</li>
+                  <li>Click "Add Phone Number" and enter a phone number in E.164 format</li>
+                  <li>A 6-digit verification code will be sent via SMS to that number</li>
+                  <li>Click "Verify" on the phone number card and enter the code</li>
+                  <li>Once verified, you can send SMS campaigns to this recipient</li>
+                  <li>You can resend the verification code if needed</li>
                 </ol>
                 <p className="text-sm text-muted-foreground mt-2">
-                  Note: Phone numbers must be verified in AWS SNS before you can add them here.
+                  Note: You need AWS SNS configured with sender phone numbers to send verification codes.
                 </p>
               </div>
             </AlertDescription>
           </Alert>
-
-          {awsNumbersLoading ? (
-            <div className="text-center py-4" data-testid="status-loading-aws-numbers">
-              <p className="text-muted-foreground">Loading AWS origination numbers...</p>
-            </div>
-          ) : awsOriginationNumbers.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Available AWS Origination Numbers</CardTitle>
-                <CardDescription>
-                  These phone numbers are configured in your AWS SNS account and ready to use
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {awsOriginationNumbers.map((awsNumber, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <Phone className="w-4 h-4 text-primary" />
-                        <div>
-                          <p className="font-medium">{awsNumber.phoneNumber}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {awsNumber.iso2CountryCode} • {awsNumber.routeType} • {awsNumber.numberCapabilities.join(', ')}
-                          </p>
-                        </div>
-                      </div>
-                      <Badge variant={awsNumber.status === 'ACTIVE' ? 'default' : 'secondary'}>
-                        {awsNumber.status}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
 
           {phoneNumbersLoading ? (
             <div className="text-center py-8" data-testid="status-loading-numbers">
@@ -361,8 +306,8 @@ export default function SmsDashboard() {
             <Card data-testid="card-empty-state">
               <CardContent className="flex flex-col items-center justify-center py-12">
                 <Phone className="w-12 h-12 text-muted-foreground mb-4" />
-                <p className="text-lg font-semibold mb-2" data-testid="text-empty-title">No phone numbers yet</p>
-                <p className="text-muted-foreground mb-4" data-testid="text-empty-description">Add your first phone number to start sending SMS</p>
+                <p className="text-lg font-semibold mb-2" data-testid="text-empty-title">No recipient phone numbers yet</p>
+                <p className="text-muted-foreground mb-4" data-testid="text-empty-description">Add your first recipient phone number to start sending SMS campaigns</p>
               </CardContent>
             </Card>
           ) : (
@@ -377,6 +322,7 @@ export default function SmsDashboard() {
                           <CardTitle className="text-lg">{phoneNumber.phoneNumber}</CardTitle>
                           <CardDescription>
                             Added {new Date(phoneNumber.createdAt).toLocaleDateString()}
+                            {phoneNumber.verifiedAt && ` • Verified ${new Date(phoneNumber.verifiedAt).toLocaleDateString()}`}
                           </CardDescription>
                         </div>
                       </div>
@@ -387,18 +333,36 @@ export default function SmsDashboard() {
                               <CheckCircle2 className="w-3 h-3 mr-1" />
                               Verified
                             </>
-                          ) : phoneNumber.status === "pending" ? (
+                          ) : (
                             <>
                               <Clock className="w-3 h-3 mr-1" />
                               Pending
                             </>
-                          ) : (
-                            <>
-                              <AlertCircle className="w-3 h-3 mr-1" />
-                              {phoneNumber.status}
-                            </>
                           )}
                         </Badge>
+                        {phoneNumber.status !== "verified" && (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => sendVerificationMutation.mutate(phoneNumber.id)}
+                              disabled={sendVerificationMutation.isPending}
+                              data-testid={`button-resend-${phoneNumber.id}`}
+                            >
+                              <Send className="w-3 h-3 mr-1" />
+                              Resend Code
+                            </Button>
+                            <Button
+                              variant="default"
+                              size="sm"
+                              onClick={() => openVerifyDialog(phoneNumber.id)}
+                              data-testid={`button-verify-${phoneNumber.id}`}
+                            >
+                              <ShieldCheck className="w-3 h-3 mr-1" />
+                              Verify
+                            </Button>
+                          </>
+                        )}
                         <Button
                           variant="ghost"
                           size="icon"
@@ -415,6 +379,54 @@ export default function SmsDashboard() {
             </div>
           )}
         </div>
+
+        <Dialog open={isVerifyDialogOpen} onOpenChange={setIsVerifyDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Verify Phone Number</DialogTitle>
+              <DialogDescription>
+                Enter the 6-digit verification code sent to your phone number
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 pt-4">
+              <div>
+                <Label htmlFor="verificationCode">Verification Code</Label>
+                <Input
+                  id="verificationCode"
+                  type="text"
+                  placeholder="123456"
+                  maxLength={6}
+                  value={verificationCode}
+                  onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ''))}
+                  data-testid="input-verification-code"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Enter the 6-digit code you received via SMS
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button 
+                  onClick={handleVerifyPhoneNumber} 
+                  className="flex-1"
+                  disabled={verifyPhoneNumberMutation.isPending || verificationCode.length !== 6}
+                  data-testid="button-submit-verification"
+                >
+                  {verifyPhoneNumberMutation.isPending ? "Verifying..." : "Verify Phone Number"}
+                </Button>
+                <Button 
+                  variant="outline"
+                  onClick={() => {
+                    setIsVerifyDialogOpen(false);
+                    setVerificationCode("");
+                  }}
+                  data-testid="button-cancel-verification"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   );
