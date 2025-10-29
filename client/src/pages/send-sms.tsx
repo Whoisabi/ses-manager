@@ -23,11 +23,7 @@ export default function SendSms() {
 
   const sendMutation = useMutation({
     mutationFn: async (data: any) => {
-      const response = await apiRequest("/api/sms/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
+      const response = await apiRequest("POST", "/api/sms/send", data);
       return response.json();
     },
     onSuccess: (data) => {
