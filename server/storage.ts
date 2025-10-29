@@ -23,6 +23,10 @@ import {
   type InsertSmsSend,
   type SmsTrackingEvent,
   type InsertSmsTrackingEvent,
+  type SmsPhoneNumber,
+  type InsertSmsPhoneNumber,
+  type SmsRecipientPhoneNumber,
+  type InsertSmsRecipientPhoneNumber,
   type Domain,
   type InsertDomain,
   type DnsRecord,
@@ -144,6 +148,14 @@ export interface IStorage {
   getSmsPhoneNumber(id: string, userId: string): Promise<SmsPhoneNumber | undefined>;
   createSmsPhoneNumber(phoneNumber: InsertSmsPhoneNumber & { userId: string }): Promise<SmsPhoneNumber>;
   deleteSmsPhoneNumber(id: string, userId: string): Promise<void>;
+
+  // SMS recipient phone number operations
+  getSmsRecipientPhoneNumbers(userId: string): Promise<SmsRecipientPhoneNumber[]>;
+  getSmsRecipientPhoneNumber(id: string, userId: string): Promise<SmsRecipientPhoneNumber | undefined>;
+  createSmsRecipientPhoneNumber(phoneNumber: InsertSmsRecipientPhoneNumber & { userId: string }): Promise<SmsRecipientPhoneNumber>;
+  sendVerificationCode(id: string, userId: string): Promise<SmsRecipientPhoneNumber>;
+  verifyPhoneNumber(id: string, userId: string, code: string): Promise<SmsRecipientPhoneNumber>;
+  deleteSmsRecipientPhoneNumber(id: string, userId: string): Promise<void>;
 
   // SMS Analytics operations
   getSmsStats(userId: string): Promise<{
@@ -1540,6 +1552,150 @@ export class DatabaseStorage implements IStorage {
 
   async deleteSmsPhoneNumber(id: string, userId: string): Promise<void> {
     await prisma.smsPhoneNumber.delete({
+      where: { id },
+    });
+  }
+
+  async getSmsRecipientPhoneNumbers(userId: string): Promise<SmsRecipientPhoneNumber[]> {
+    const phoneNumbers = await prisma.smsRecipientPhoneNumber.findMany({
+      where: { user_id: userId },
+      orderBy: { created_at: 'desc' },
+    });
+    return phoneNumbers.map(p => ({
+      id: p.id,
+      userId: p.user_id,
+      phoneNumber: p.phone_number,
+      status: p.status,
+      verificationCode: p.verification_code,
+      verificationAttempts: p.verification_attempts,
+      lastVerificationSentAt: p.last_verification_sent_at,
+      verifiedAt: p.verified_at,
+      createdAt: p.created_at,
+      updatedAt: p.updated_at,
+    }));
+  }
+
+  async getSmsRecipientPhoneNumber(id: string, userId: string): Promise<SmsRecipientPhoneNumber | undefined> {
+    const p = await prisma.smsRecipientPhoneNumber.findFirst({
+      where: { id, user_id: userId },
+    });
+    if (!p) return undefined;
+    return {
+      id: p.id,
+      userId: p.user_id,
+      phoneNumber: p.phone_number,
+      status: p.status,
+      verificationCode: p.verification_code,
+      verificationAttempts: p.verification_attempts,
+      lastVerificationSentAt: p.last_verification_sent_at,
+      verifiedAt: p.verified_at,
+      createdAt: p.created_at,
+      updatedAt: p.updated_at,
+    };
+  }
+
+  async createSmsRecipientPhoneNumber(phoneNumber: InsertSmsRecipientPhoneNumber & { userId: string }): Promise<SmsRecipientPhoneNumber> {
+    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    const p = await prisma.smsRecipientPhoneNumber.create({
+      data: {
+        user_id: phoneNumber.userId,
+        phone_number: phoneNumber.phoneNumber,
+        status: 'pending',
+        verification_code: verificationCode,
+        verification_attempts: 0,
+        created_at: new Date(),
+        updated_at: new Date(),
+      },
+    });
+    return {
+      id: p.id,
+      userId: p.user_id,
+      phoneNumber: p.phone_number,
+      status: p.status,
+      verificationCode: p.verification_code,
+      verificationAttempts: p.verification_attempts,
+      lastVerificationSentAt: p.last_verification_sent_at,
+      verifiedAt: p.verified_at,
+      createdAt: p.created_at,
+      updatedAt: p.updated_at,
+    };
+  }
+
+  async sendVerificationCode(id: string, userId: string): Promise<SmsRecipientPhoneNumber> {
+    const phoneNumber = await this.getSmsRecipientPhoneNumber(id, userId);
+    if (!phoneNumber) {
+      throw new Error('Phone number not found');
+    }
+
+    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    const p = await prisma.smsRecipientPhoneNumber.update({
+      where: { id },
+      data: {
+        verification_code: verificationCode,
+        last_verification_sent_at: new Date(),
+        updated_at: new Date(),
+      },
+    });
+
+    return {
+      id: p.id,
+      userId: p.user_id,
+      phoneNumber: p.phone_number,
+      status: p.status,
+      verificationCode: p.verification_code,
+      verificationAttempts: p.verification_attempts,
+      lastVerificationSentAt: p.last_verification_sent_at,
+      verifiedAt: p.verified_at,
+      createdAt: p.created_at,
+      updatedAt: p.updated_at,
+    };
+  }
+
+  async verifyPhoneNumber(id: string, userId: string, code: string): Promise<SmsRecipientPhoneNumber> {
+    const phoneNumber = await this.getSmsRecipientPhoneNumber(id, userId);
+    if (!phoneNumber) {
+      throw new Error('Phone number not found');
+    }
+
+    if (phoneNumber.verificationCode !== code) {
+      await prisma.smsRecipientPhoneNumber.update({
+        where: { id },
+        data: {
+          verification_attempts: (phoneNumber.verificationAttempts || 0) + 1,
+          updated_at: new Date(),
+        },
+      });
+      throw new Error('Invalid verification code');
+    }
+
+    const p = await prisma.smsRecipientPhoneNumber.update({
+      where: { id },
+      data: {
+        status: 'verified',
+        verified_at: new Date(),
+        verification_code: null,
+        updated_at: new Date(),
+      },
+    });
+
+    return {
+      id: p.id,
+      userId: p.user_id,
+      phoneNumber: p.phone_number,
+      status: p.status,
+      verificationCode: p.verification_code,
+      verificationAttempts: p.verification_attempts,
+      lastVerificationSentAt: p.last_verification_sent_at,
+      verifiedAt: p.verified_at,
+      createdAt: p.created_at,
+      updatedAt: p.updated_at,
+    };
+  }
+
+  async deleteSmsRecipientPhoneNumber(id: string, userId: string): Promise<void> {
+    await prisma.smsRecipientPhoneNumber.delete({
       where: { id },
     });
   }
