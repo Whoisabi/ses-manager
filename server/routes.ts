@@ -1695,7 +1695,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/sms/send', isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user!.id;
-      const { phoneNumber, message, smsType } = req.body;
+      const { phoneNumber, message, smsType, senderId } = req.body;
 
       if (!phoneNumber || !message) {
         return res.status(400).json({ message: "Phone number and message are required" });
@@ -1720,6 +1720,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         phoneNumber,
         message,
         smsType: smsType || 'Promotional',
+        senderId: senderId || undefined,
       });
 
       const smsSend = await storage.createSmsSend({
