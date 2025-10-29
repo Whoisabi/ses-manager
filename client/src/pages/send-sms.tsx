@@ -18,6 +18,7 @@ export default function SendSms() {
     phoneNumber: "",
     message: "",
     smsType: "Promotional",
+    senderId: "",
   });
 
   const sendMutation = useMutation({
@@ -32,7 +33,7 @@ export default function SendSms() {
     onSuccess: (data) => {
       if (data.success) {
         toast({ title: "SMS sent successfully!" });
-        setFormData({ phoneNumber: "", message: "", smsType: "Promotional" });
+        setFormData({ phoneNumber: "", message: "", smsType: "Promotional", senderId: "" });
       } else {
         toast({ title: `Failed to send SMS: ${data.error}`, variant: "destructive" });
       }
@@ -48,6 +49,14 @@ export default function SendSms() {
       toast({
         title: "Invalid phone number",
         description: "Phone number must be in E.164 format (e.g., +1234567890)",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (formData.senderId && !/^[a-zA-Z0-9]{3,11}$/.test(formData.senderId)) {
+      toast({
+        title: "Invalid Sender ID",
+        description: "Sender ID must be 3-11 alphanumeric characters",
         variant: "destructive",
       });
       return;
@@ -116,6 +125,22 @@ export default function SendSms() {
                   </Select>
                   <p className="text-xs text-muted-foreground mt-1">
                     Transactional SMS has better delivery for OTPs and alerts
+                  </p>
+                </div>
+
+                <div>
+                  <Label htmlFor="senderId">Sender ID (Optional)</Label>
+                  <Input
+                    id="senderId"
+                    data-testid="input-sender-id"
+                    type="text"
+                    value={formData.senderId}
+                    onChange={(e) => setFormData({ ...formData, senderId: e.target.value.toUpperCase() })}
+                    placeholder="MYCOMPANY"
+                    maxLength={11}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Custom alphanumeric sender name (3-11 characters). Only works in supported countries (not US/Canada).
                   </p>
                 </div>
 
