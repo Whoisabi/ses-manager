@@ -1871,6 +1871,147 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // SMS Recipient Phone Numbers
+  app.get('/api/sms/recipient-phone-numbers', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.id;
+      const phoneNumbers = await storage.getSmsRecipientPhoneNumbers(userId);
+      res.json(phoneNumbers);
+    } catch (error) {
+      console.error("Error fetching SMS recipient phone numbers:", error);
+      res.status(500).json({ message: "Failed to fetch SMS recipient phone numbers" });
+    }
+  });
+
+  app.post('/api/sms/recipient-phone-numbers', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.id;
+      const { phoneNumber } = req.body;
+
+      if (!phoneNumber) {
+        return res.status(400).json({ message: "Phone number is required" });
+      }
+
+      if (!phoneNumber.startsWith('+')) {
+        return res.status(400).json({ message: "Phone number must be in E.164 format (e.g., +1234567890)" });
+      }
+
+      const phoneNumberRecord = await storage.createSmsRecipientPhoneNumber({
+        userId,
+        phoneNumber,
+        status: 'pending',
+      });
+
+      try {
+        await snsService.initialize(userId);
+        
+        const message = `Your verification code is: ${phoneNumberRecord.verificationCode}. Enter this code to verify your phone number.`;
+        await snsService.sendSms(phoneNumber, message);
+
+        res.status(201).json({ 
+          ...phoneNumberRecord,
+          verificationCode: undefined 
+        });
+      } catch (smsError: any) {
+        console.error("Error sending verification SMS:", smsError);
+        res.status(201).json({ 
+          ...phoneNumberRecord,
+          verificationCode: undefined,
+          warning: "Phone number added but verification SMS failed to send. Please resend verification code."
+        });
+      }
+    } catch (error) {
+      console.error("Error creating SMS recipient phone number:", error);
+      res.status(500).json({ message: "Failed to create SMS recipient phone number" });
+    }
+  });
+
+  app.post('/api/sms/recipient-phone-numbers/:id/send-verification', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.id;
+      const { id } = req.params;
+
+      const phoneNumber = await storage.getSmsRecipientPhoneNumber(id, userId);
+
+      if (!phoneNumber) {
+        return res.status(404).json({ message: "Phone number not found" });
+      }
+
+      if (phoneNumber.status === 'verified') {
+        return res.status(400).json({ message: "Phone number is already verified" });
+      }
+
+      const updatedPhoneNumber = await storage.sendVerificationCode(id, userId);
+
+      try {
+        await snsService.initialize(userId);
+        
+        const message = `Your verification code is: ${updatedPhoneNumber.verificationCode}. Enter this code to verify your phone number.`;
+        await snsService.sendSms(phoneNumber.phoneNumber, message);
+
+        res.json({ 
+          success: true, 
+          message: "Verification code sent successfully" 
+        });
+      } catch (smsError: any) {
+        console.error("Error sending verification SMS:", smsError);
+        res.status(500).json({ message: "Failed to send verification SMS. Please check your AWS credentials." });
+      }
+    } catch (error) {
+      console.error("Error sending verification code:", error);
+      res.status(500).json({ message: "Failed to send verification code" });
+    }
+  });
+
+  app.post('/api/sms/recipient-phone-numbers/:id/verify', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.id;
+      const { id } = req.params;
+      const { code } = req.body;
+
+      if (!code) {
+        return res.status(400).json({ message: "Verification code is required" });
+      }
+
+      const verifiedPhoneNumber = await storage.verifyPhoneNumber(id, userId, code);
+
+      res.json({ 
+        ...verifiedPhoneNumber,
+        verificationCode: undefined,
+        message: "Phone number verified successfully" 
+      });
+    } catch (error: any) {
+      if (error.message === 'Invalid verification code') {
+        return res.status(400).json({ message: "Invalid verification code" });
+      }
+      if (error.message === 'Phone number not found') {
+        return res.status(404).json({ message: "Phone number not found" });
+      }
+      console.error("Error verifying phone number:", error);
+      res.status(500).json({ message: "Failed to verify phone number" });
+    }
+  });
+
+  app.delete('/api/sms/recipient-phone-numbers/:id', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.id;
+      const { id } = req.params;
+
+      const phoneNumber = await storage.getSmsRecipientPhoneNumber(id, userId);
+
+      if (!phoneNumber) {
+        return res.status(404).json({ message: "Phone number not found" });
+      }
+
+      await storage.deleteSmsRecipientPhoneNumber(id, userId);
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting SMS recipient phone number:", error);
+      res.status(500).json({ message: "Failed to delete SMS recipient phone number" });
+    }
+  });
+
   // SMS Stats
   app.get('/api/sms/stats', isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
