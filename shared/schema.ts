@@ -188,6 +188,20 @@ export const smsPhoneNumbers = pgTable("sms_phone_numbers", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// SMS recipient phone numbers - store and verify recipient phone numbers
+export const smsRecipientPhoneNumbers = pgTable("sms_recipient_phone_numbers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  phoneNumber: varchar("phone_number").notNull(),
+  status: varchar("status").notNull().default('pending'), // pending, verified, failed
+  verificationCode: varchar("verification_code"),
+  verificationAttempts: integer("verification_attempts").default(0),
+  lastVerificationSentAt: timestamp("last_verification_sent_at"),
+  verifiedAt: timestamp("verified_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Domains - store verified domains
 export const domains = pgTable("domains", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -436,6 +450,9 @@ export type SmsTrackingEvent = typeof smsTrackingEvents.$inferSelect;
 export type InsertSmsPhoneNumber = typeof smsPhoneNumbers.$inferInsert;
 export type SmsPhoneNumber = typeof smsPhoneNumbers.$inferSelect;
 
+export type InsertSmsRecipientPhoneNumber = typeof smsRecipientPhoneNumbers.$inferInsert;
+export type SmsRecipientPhoneNumber = typeof smsRecipientPhoneNumbers.$inferSelect;
+
 // Zod schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -525,6 +542,17 @@ export const insertSmsTrackingEventSchema = createInsertSchema(smsTrackingEvents
 export const insertSmsPhoneNumberSchema = createInsertSchema(smsPhoneNumbers).omit({
   id: true,
   userId: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertSmsRecipientPhoneNumberSchema = createInsertSchema(smsRecipientPhoneNumbers).omit({
+  id: true,
+  userId: true,
+  verificationCode: true,
+  verificationAttempts: true,
+  lastVerificationSentAt: true,
+  verifiedAt: true,
   createdAt: true,
   updatedAt: true,
 });

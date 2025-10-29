@@ -24,10 +24,11 @@ model User {
   email_templates    EmailTemplate[]
   recipient_lists    RecipientList[]
   tracking_config    TrackingConfig?
-  sms_sends          SmsSend[]
-  sms_campaigns      SmsCampaign[]
-  sms_templates      SmsTemplate[]
-  sms_phone_numbers  SmsPhoneNumber[]
+  sms_sends                   SmsSend[]
+  sms_campaigns               SmsCampaign[]
+  sms_templates               SmsTemplate[]
+  sms_phone_numbers           SmsPhoneNumber[]
+  sms_recipient_phone_numbers SmsRecipientPhoneNumber[]
 
   @@map("users")
 }
@@ -316,4 +317,20 @@ model SmsPhoneNumber {
   user         User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@map("sms_phone_numbers")
+}
+
+model SmsRecipientPhoneNumber {
+  id                        String    @id @default(uuid())
+  user_id                   String
+  phone_number              String
+  status                    String    @default("pending")
+  verification_code         String?
+  verification_attempts     Int       @default(0)
+  last_verification_sent_at DateTime?
+  verified_at               DateTime?
+  created_at                DateTime  @default(now())
+  updated_at                DateTime  @updatedAt
+  user                      User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("sms_recipient_phone_numbers")
 }
