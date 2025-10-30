@@ -1,6 +1,20 @@
 import express, { type Request, Response, NextFunction } from "express";
 import dotenv from "dotenv";
-dotenv.config();
+
+const envConfig = dotenv.config({ override: false });
+if (envConfig.parsed && process.env.DATABASE_URL && envConfig.parsed.DATABASE_URL) {
+  if (process.env.DATABASE_URL === envConfig.parsed.DATABASE_URL) {
+    delete process.env.DATABASE_URL;
+    const replitDbUrl = process.env.PGHOST ? 
+      `postgresql://${process.env.PGUSER}:${process.env.PGPASSWORD}@${process.env.PGHOST}:${process.env.PGPORT}/${process.env.PGDATABASE}?sslmode=require` 
+      : undefined;
+    if (replitDbUrl) {
+      process.env.DATABASE_URL = replitDbUrl;
+      console.log('[DB] Using Replit PostgreSQL database');
+    }
+  }
+}
+
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
