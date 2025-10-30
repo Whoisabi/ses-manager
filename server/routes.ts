@@ -1903,10 +1903,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       try {
-        await snsService.initialize(userId);
+        await awsService.initialize(userId);
         
         const message = `Your verification code is: ${phoneNumberRecord.verificationCode}. Enter this code to verify your phone number.`;
-        await snsService.sendSms(phoneNumber, message);
+        await awsService.sendSMS({
+          phoneNumber: phoneNumber,
+          message: message
+        });
 
         res.status(201).json({ 
           ...phoneNumberRecord,
@@ -1944,10 +1947,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updatedPhoneNumber = await storage.sendVerificationCode(id, userId);
 
       try {
-        await snsService.initialize(userId);
+        await awsService.initialize(userId);
         
         const message = `Your verification code is: ${updatedPhoneNumber.verificationCode}. Enter this code to verify your phone number.`;
-        await snsService.sendSms(phoneNumber.phoneNumber, message);
+        await awsService.sendSMS({
+          phoneNumber: phoneNumber.phoneNumber,
+          message: message
+        });
 
         res.json({ 
           success: true, 
