@@ -1903,24 +1903,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       try {
+        console.log(`[SMS] Initializing AWS service for user ${userId}`);
         await awsService.initialize(userId);
         
         const message = `Your verification code is: ${phoneNumberRecord.verificationCode}. Enter this code to verify your phone number.`;
-        await awsService.sendSMS({
+        console.log(`[SMS] Attempting to send verification SMS to ${phoneNumber}`);
+        
+        const messageId = await awsService.sendSMS({
           phoneNumber: phoneNumber,
           message: message
         });
 
-        res.status(201).json({ 
-          ...phoneNumberRecord,
-          verificationCode: undefined 
-        });
-      } catch (smsError: any) {
-        console.error("Error sending verification SMS:", smsError);
+        console.log(`[SMS] Verification SMS sent successfully. MessageId: ${messageId}`);
         res.status(201).json({ 
           ...phoneNumberRecord,
           verificationCode: undefined,
-          warning: "Phone number added but verification SMS failed to send. Please resend verification code."
+          message: "Verification code sent! Note: If you don't receive it, your AWS account may be in SNS Sandbox mode. Check AWS Console to verify your phone number or request production access."
+        });
+      } catch (smsError: any) {
+        console.error("[SMS] Error sending verification SMS:", smsError);
+        console.error("[SMS] Error details:", JSON.stringify(smsError, null, 2));
+        res.status(201).json({ 
+          ...phoneNumberRecord,
+          verificationCode: undefined,
+          warning: `Phone number added but verification SMS failed: ${smsError.message || 'Unknown error'}. Check AWS SNS sandbox mode settings.`
         });
       }
     } catch (error) {
