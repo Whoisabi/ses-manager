@@ -1256,13 +1256,15 @@ export class DatabaseStorage implements IStorage {
     const sendData: any = {
       user_id: smsSend.userId,
       recipient_phone: smsSend.recipientPhone,
-      content: smsSend.content,
+      message: smsSend.content,
+      sms_type: smsSend.smsType ?? 'Transactional',
       status: smsSend.status ?? 'pending',
       message_id: smsSend.messageId,
       sent_at: smsSend.sentAt,
       delivered_at: smsSend.deliveredAt,
       failed_at: smsSend.failedAt,
       failure_reason: smsSend.failureReason,
+      estimated_cost: smsSend.estimatedCost,
       created_at: new Date(),
     };
     if (smsSend.id) sendData.id = smsSend.id;
@@ -1273,7 +1275,7 @@ export class DatabaseStorage implements IStorage {
       campaignId: s.campaign_id,
       userId: s.user_id,
       recipientPhone: s.recipient_phone,
-      content: s.content,
+      content: s.message,
       status: s.status,
       messageId: s.message_id,
       sentAt: s.sent_at,
@@ -1287,7 +1289,7 @@ export class DatabaseStorage implements IStorage {
   async updateSmsSend(id: string, updates: Partial<InsertSmsSend>): Promise<SmsSend> {
     const updateData: any = {};
     if (updates.recipientPhone !== undefined) updateData.recipient_phone = updates.recipientPhone;
-    if (updates.content !== undefined) updateData.content = updates.content;
+    if (updates.content !== undefined) updateData.message = updates.content;
     if (updates.status !== undefined) updateData.status = updates.status;
     if (updates.messageId !== undefined) updateData.message_id = updates.messageId;
     if (updates.sentAt !== undefined) updateData.sent_at = updates.sentAt;
@@ -1306,7 +1308,7 @@ export class DatabaseStorage implements IStorage {
       campaignId: s.campaign_id,
       userId: s.user_id,
       recipientPhone: s.recipient_phone,
-      content: s.content,
+      content: s.message,
       status: s.status,
       messageId: s.message_id,
       sentAt: s.sent_at,
@@ -1325,7 +1327,7 @@ export class DatabaseStorage implements IStorage {
       campaignId: s.campaign_id,
       userId: s.user_id,
       recipientPhone: s.recipient_phone,
-      content: s.content,
+      content: s.message,
       status: s.status,
       messageId: s.message_id,
       sentAt: s.sent_at,
@@ -1349,7 +1351,7 @@ export class DatabaseStorage implements IStorage {
       campaignId: s.campaign_id,
       userId: s.user_id,
       recipientPhone: s.recipient_phone,
-      content: s.content,
+      content: s.message,
       status: s.status,
       messageId: s.message_id,
       sentAt: s.sent_at,
@@ -1370,7 +1372,7 @@ export class DatabaseStorage implements IStorage {
       campaignId: s.campaign_id,
       userId: s.user_id,
       recipientPhone: s.recipient_phone,
-      content: s.content,
+      content: s.message,
       status: s.status,
       messageId: s.message_id,
       sentAt: s.sent_at,
