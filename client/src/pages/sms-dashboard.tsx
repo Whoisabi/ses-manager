@@ -55,6 +55,17 @@ export default function SmsDashboard() {
     enabled: !!user,
   });
 
+  const { data: awsOriginationNumbers = [], isLoading: awsNumbersLoading } = useQuery<Array<{
+    phoneNumber: string;
+    status: string;
+    iso2CountryCode: string;
+    numberCapabilities: string[];
+    routeType: string;
+  }>>({
+    queryKey: ["/api/sms/aws-origination-numbers"],
+    enabled: !!user,
+  });
+
   const addPhoneNumberMutation = useMutation({
     mutationFn: async (phoneNumber: string) => {
       const response = await apiRequest("POST", "/api/sms/recipient-phone-numbers", { phoneNumber });
@@ -249,6 +260,75 @@ export default function SmsDashboard() {
               </CardContent>
             </Card>
           </div>
+
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <ShieldCheck className="w-5 h-5" />
+                    AWS SNS Verified Phone Numbers
+                  </CardTitle>
+                  <CardDescription>
+                    Your verified origination numbers from AWS SNS Console
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {awsNumbersLoading ? (
+                <div className="text-center py-4 text-muted-foreground">
+                  <Phone className="w-8 h-8 mx-auto mb-2 animate-pulse" />
+                  <p>Loading AWS SNS phone numbers...</p>
+                </div>
+              ) : awsOriginationNumbers.length === 0 ? (
+                <Alert>
+                  <Info className="h-4 w-4" />
+                  <AlertDescription>
+                    <div className="space-y-2">
+                      <p className="font-medium">No verified phone numbers found in AWS SNS</p>
+                      <p className="text-sm">To use SMS features, you need to:</p>
+                      <ol className="text-sm list-decimal list-inside space-y-1 ml-2">
+                        <li>Go to <a href="https://console.aws.amazon.com/sns" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">AWS SNS Console</a></li>
+                        <li>Click "Text messaging (SMS)" → "Sandbox destination phone numbers"</li>
+                        <li>Verify your phone numbers OR request production access</li>
+                      </ol>
+                    </div>
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                <div className="space-y-3">
+                  {awsOriginationNumbers.map((number, index) => (
+                    <div 
+                      key={index}
+                      className="flex items-center justify-between p-3 border rounded-lg"
+                      data-testid={`aws-phone-${number.phoneNumber}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Phone className="w-4 h-4 text-green-600" />
+                        <div>
+                          <p className="font-medium">{number.phoneNumber}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {number.iso2CountryCode} • {number.routeType}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={number.status === 'ACTIVE' ? 'default' : 'secondary'}>
+                          {number.status}
+                        </Badge>
+                        {number.numberCapabilities.map((cap, idx) => (
+                          <Badge key={idx} variant="outline" className="text-xs">
+                            {cap}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           <div className="flex justify-between items-center">
             <div>
