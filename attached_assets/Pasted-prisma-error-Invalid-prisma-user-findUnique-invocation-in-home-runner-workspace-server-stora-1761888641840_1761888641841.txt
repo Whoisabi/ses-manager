@@ -1,0 +1,58 @@
+prisma:error 
+Invalid `prisma.user.findUnique()` invocation in
+/home/runner/workspace/server/storage.ts:255:36
+
+  252 }
+  253 
+  254 async getUserByEmail(email: string): Promise<User | undefined> {
+→ 255   const user = await prisma.user.findUnique(
+The table `public.users` does not exist in the current database.
+Registration error: PrismaClientKnownRequestError: 
+Invalid `prisma.user.findUnique()` invocation in
+/home/runner/workspace/server/storage.ts:255:36
+
+  252 }
+  253 
+  254 async getUserByEmail(email: string): Promise<User | undefined> {
+→ 255   const user = await prisma.user.findUnique(
+The table `public.users` does not exist in the current database.
+    at ei.handleRequestError (/home/runner/workspace/node_modules/@prisma/client/src/runtime/RequestHandler.ts:228:13)
+    at ei.handleAndLogRequestError (/home/runner/workspace/node_modules/@prisma/client/src/runtime/RequestHandler.ts:174:12)
+    at ei.request (/home/runner/workspace/node_modules/@prisma/client/src/runtime/RequestHandler.ts:143:12)
+    at async a (/home/runner/workspace/node_modules/@prisma/client/src/runtime/getPrismaClient.ts:833:24)
+    at async DatabaseStorage.getUserByEmail (/home/runner/workspace/server/storage.ts:255:18)
+    at async <anonymous> (/home/runner/workspace/server/auth.ts:97:28) {
+  code: 'P2021',
+  meta: { modelName: 'User', table: 'public.users' },
+  clientVersion: '6.17.1'
+}
+5:29:14 AM [express] POST /api/register 500 in 2212ms :: {"message":"Registration failed"}
+prisma:error 
+Invalid `prisma.user.findUnique()` invocation in
+/home/runner/workspace/server/storage.ts:255:36
+
+  252 }
+  253 
+  254 async getUserByEmail(email: string): Promise<User | undefined> {
+→ 255   const user = await prisma.user.findUnique(
+The table `public.users` does not exist in the current database.
+Registration error: PrismaClientKnownRequestError: 
+Invalid `prisma.user.findUnique()` invocation in
+/home/runner/workspace/server/storage.ts:255:36
+
+  252 }
+  253 
+  254 async getUserByEmail(email: string): Promise<User | undefined> {
+→ 255   const user = await prisma.user.findUnique(
+The table `public.users` does not exist in the current database.
+    at ei.handleRequestError (/home/runner/workspace/node_modules/@prisma/client/src/runtime/RequestHandler.ts:228:13)
+    at ei.handleAndLogRequestError (/home/runner/workspace/node_modules/@prisma/client/src/runtime/RequestHandler.ts:174:12)
+    at ei.request (/home/runner/workspace/node_modules/@prisma/client/src/runtime/RequestHandler.ts:143:12)
+    at async a (/home/runner/workspace/node_modules/@prisma/client/src/runtime/getPrismaClient.ts:833:24)
+    at async DatabaseStorage.getUserByEmail (/home/runner/workspace/server/storage.ts:255:18)
+    at async <anonymous> (/home/runner/workspace/server/auth.ts:97:28) {
+  code: 'P2021',
+  meta: { modelName: 'User', table: 'public.users' },
+  clientVersion: '6.17.1'
+}
+5:30:24 AM [express] POST /api/register 500 in 6ms :: {"message":"Registration failed"}
