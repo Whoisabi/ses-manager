@@ -1726,7 +1726,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const smsSend = await storage.createSmsSend({
         userId,
         recipientPhone: phoneNumber,
-        message,
+        content: message,
         smsType: smsType || 'Promotional',
         status: result.success ? 'sent' : 'failed',
         messageId: result.messageId || null,
