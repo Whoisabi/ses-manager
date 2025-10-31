@@ -66,6 +66,14 @@ export default function SmsDashboard() {
     enabled: !!user,
   });
 
+  const { data: awsSandboxNumbers = [], isLoading: sandboxNumbersLoading } = useQuery<Array<{
+    phoneNumber: string;
+    status: string;
+  }>>({
+    queryKey: ["/api/sms/aws-sandbox-numbers"],
+    enabled: !!user,
+  });
+
   const addPhoneNumberMutation = useMutation({
     mutationFn: async (phoneNumber: string) => {
       const response = await apiRequest("POST", "/api/sms/recipient-phone-numbers", { phoneNumber });
@@ -322,6 +330,85 @@ export default function SmsDashboard() {
                             {cap}
                           </Badge>
                         ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Phone className="w-5 h-5" />
+                    AWS SNS Sandbox Destination Phone Numbers
+                  </CardTitle>
+                  <CardDescription>
+                    Verified recipient phone numbers in AWS SNS Sandbox mode (numbers you can send TO)
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {sandboxNumbersLoading ? (
+                <div className="text-center py-4 text-muted-foreground">
+                  <Phone className="w-8 h-8 mx-auto mb-2 animate-pulse" />
+                  <p>Loading AWS SNS sandbox phone numbers...</p>
+                </div>
+              ) : awsSandboxNumbers.length === 0 ? (
+                <Alert>
+                  <Info className="h-4 w-4" />
+                  <AlertDescription>
+                    <div className="space-y-2">
+                      <p className="font-medium">No sandbox destination phone numbers found</p>
+                      <p className="text-sm">While in AWS SNS sandbox mode, you can only send SMS to verified phone numbers. To add verified recipients:</p>
+                      <ol className="text-sm list-decimal list-inside space-y-1 ml-2">
+                        <li>Go to <a href="https://console.aws.amazon.com/sns" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">AWS SNS Console</a></li>
+                        <li>Click "Text messaging (SMS)" → "Sandbox destination phone numbers"</li>
+                        <li>Click "Add phone number" to verify recipient phone numbers</li>
+                        <li>OR request production access to remove sandbox restrictions</li>
+                      </ol>
+                    </div>
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                <div className="space-y-3">
+                  <Alert className="mb-4">
+                    <Info className="h-4 w-4" />
+                    <AlertDescription className="text-sm">
+                      These are the verified recipient phone numbers in your AWS SNS account. While in sandbox mode, you can only send SMS to these numbers.
+                    </AlertDescription>
+                  </Alert>
+                  {awsSandboxNumbers.map((number, index) => (
+                    <div 
+                      key={index}
+                      className="flex items-center justify-between p-3 border rounded-lg"
+                      data-testid={`aws-sandbox-phone-${number.phoneNumber}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Phone className="w-4 h-4 text-blue-600" />
+                        <div>
+                          <p className="font-medium">{number.phoneNumber}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Sandbox destination number
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {number.status === 'Verified' ? (
+                          <Badge variant="default" className="bg-green-600">
+                            <CheckCircle2 className="w-3 h-3 mr-1" />
+                            Verified
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary">
+                            <Clock className="w-3 h-3 mr-1" />
+                            {number.status}
+                          </Badge>
+                        )}
                       </div>
                     </div>
                   ))}

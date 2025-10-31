@@ -1871,6 +1871,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // AWS SNS Sandbox Destination Phone Numbers
+  app.get('/api/sms/aws-sandbox-numbers', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.id;
+      
+      // Initialize SNS service
+      await snsService.initialize(userId);
+      
+      // Fetch sandbox phone numbers from AWS
+      const sandboxNumbers = await snsService.listSandboxPhoneNumbers();
+      
+      res.json(sandboxNumbers);
+    } catch (error) {
+      console.error("Error fetching AWS sandbox phone numbers:", error);
+      res.status(500).json({ message: "Failed to fetch AWS sandbox phone numbers. Make sure your AWS credentials are configured." });
+    }
+  });
+
   // SMS Recipient Phone Numbers
   app.get('/api/sms/recipient-phone-numbers', isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
