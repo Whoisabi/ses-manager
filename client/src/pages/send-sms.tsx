@@ -1,24 +1,37 @@
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
-import { MessageSquare, Send } from "lucide-react";
+import { MessageSquare, Send, Phone } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import Header from "@/components/layout/header";
 import Sidebar from "@/components/layout/sidebar";
 
 export default function SendSms() {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const [inputMode, setInputMode] = useState<"dropdown" | "manual">("dropdown");
   const [formData, setFormData] = useState({
     phoneNumber: "",
     message: "",
-    smsType: "Promotional",
+    smsType: "Transactional",
     senderId: "",
+  });
+
+  const { data: awsSandboxNumbers = [], isLoading: sandboxLoading } = useQuery<Array<{
+    phoneNumber: string;
+    status: string;
+  }>>({
+    queryKey: ["/api/sms/aws-sandbox-numbers"],
+    enabled: !!user,
   });
 
   const sendMutation = useMutation({
@@ -90,19 +103,94 @@ export default function SendSms() {
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <Label htmlFor="phoneNumber">Phone Number</Label>
-                  <Input
-                    id="phoneNumber"
-                    data-testid="input-phone"
-                    type="tel"
-                    value={formData.phoneNumber}
-                    onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
-                    placeholder="+1234567890"
-                    required
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Must be in E.164 format (e.g., +1234567890)
-                  </p>
+                  <Label>Recipient Selection</Label>
+                  <RadioGroup
+                    value={inputMode}
+                    onValueChange={(value: "dropdown" | "manual") => {
+                      setInputMode(value);
+                      setFormData({ ...formData, phoneNumber: "" });
+                    }}
+                    className="flex gap-4 mb-3"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="dropdown" id="dropdown" />
+                      <Label htmlFor="dropdown" className="font-normal cursor-pointer">
+                        Select from verified numbers
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="manual" id="manual" />
+                      <Label htmlFor="manual" className="font-normal cursor-pointer">
+                        Enter manually
+                      </Label>
+                    </div>
+                  </RadioGroup>
+
+                  {inputMode === "dropdown" ? (
+                    <div>
+                      <Label htmlFor="phoneNumber">Phone Number</Label>
+                      {sandboxLoading ? (
+                        <div className="flex items-center gap-2 p-3 border rounded-md text-muted-foreground">
+                          <Phone className="w-4 h-4 animate-pulse" />
+                          <span className="text-sm">Loading verified numbers...</span>
+                        </div>
+                      ) : awsSandboxNumbers.length === 0 ? (
+                        <Alert className="mt-2">
+                          <AlertDescription className="text-sm">
+                            No verified sandbox destination numbers found. Please verify phone numbers in your{" "}
+                            <a 
+                              href="https://console.aws.amazon.com/sns" 
+                              target="_blank" 
+                              rel="noopener noreferrer" 
+                              className="text-primary hover:underline"
+                            >
+                              AWS SNS Console
+                            </a>{" "}
+                            under "Sandbox destination phone numbers" or switch to manual entry.
+                          </AlertDescription>
+                        </Alert>
+                      ) : (
+                        <>
+                          <Select
+                            value={formData.phoneNumber}
+                            onValueChange={(value) => setFormData({ ...formData, phoneNumber: value })}
+                          >
+                            <SelectTrigger data-testid="select-phone-number" className="mt-1">
+                              <SelectValue placeholder="Select a verified phone number" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {awsSandboxNumbers
+                                .filter(num => num.status === 'Verified')
+                                .map((number) => (
+                                  <SelectItem key={number.phoneNumber} value={number.phoneNumber}>
+                                    {number.phoneNumber}
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Choose from your AWS SNS verified sandbox destination numbers
+                          </p>
+                        </>
+                      )}
+                    </div>
+                  ) : (
+                    <div>
+                      <Label htmlFor="phoneNumber">Phone Number</Label>
+                      <Input
+                        id="phoneNumber"
+                        data-testid="input-phone"
+                        type="tel"
+                        value={formData.phoneNumber}
+                        onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
+                        placeholder="+1234567890"
+                        required
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Must be in E.164 format (e.g., +1234567890)
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 <div>
