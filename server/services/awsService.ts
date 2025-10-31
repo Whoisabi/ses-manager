@@ -1,4 +1,4 @@
-import { SESClient, SendEmailCommand, SendBulkTemplatedEmailCommand, CreateTemplateCommand, DeleteTemplateCommand, ListTemplatesCommand, ListIdentitiesCommand, GetIdentityVerificationAttributesCommand, VerifyDomainIdentityCommand, VerifyEmailIdentityCommand, VerifyDomainDkimCommand, DeleteIdentityCommand, GetSendQuotaCommand, GetIdentityDkimAttributesCommand, CreateConfigurationSetCommand, DeleteConfigurationSetCommand, ListConfigurationSetsCommand, UpdateConfigurationSetTrackingOptionsCommand, CreateConfigurationSetEventDestinationCommand } from '@aws-sdk/client-ses';
+import { SESClient, SendEmailCommand, SendBulkTemplatedEmailCommand, CreateTemplateCommand, DeleteTemplateCommand, ListTemplatesCommand, ListIdentitiesCommand, GetIdentityVerificationAttributesCommand, VerifyDomainIdentityCommand, VerifyEmailIdentityCommand, VerifyDomainDkimCommand, DeleteIdentityCommand, GetSendQuotaCommand, GetIdentityDkimAttributesCommand, CreateConfigurationSetCommand, DeleteConfigurationSetCommand, ListConfigurationSetsCommand, UpdateConfigurationSetTrackingOptionsCommand, CreateConfigurationSetEventDestinationCommand, EventType } from '@aws-sdk/client-ses';
 import { SNSClient, PublishCommand, SetSMSAttributesCommand, GetSMSAttributesCommand } from '@aws-sdk/client-sns';
 import { storage } from '../storage';
 import { decrypt } from './encryptionService';
@@ -447,14 +447,14 @@ export class AWSService {
     await sesClient.send(createCommand);
 
     if (snsTopicArn) {
-      const eventTypes: string[] = ['bounce', 'complaint', 'delivery', 'send', 'reject'];
+      const eventTypes: EventType[] = ['bounce', 'complaint', 'delivery', 'send', 'reject'] as EventType[];
       
       if (openTracking) {
-        eventTypes.push('open');
+        eventTypes.push('open' as EventType);
       }
       
       if (clickTracking) {
-        eventTypes.push('click');
+        eventTypes.push('click' as EventType);
       }
 
       const eventCommand = new CreateConfigurationSetEventDestinationCommand({

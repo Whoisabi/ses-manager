@@ -1918,7 +1918,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.status(201).json({ 
           ...phoneNumberRecord,
           verificationCode: undefined,
-          message: "Verification code sent! Note: If you don't receive it, your AWS account may be in SNS Sandbox mode. Check AWS Console to verify your phone number or request production access."
+          message: "⚠️ IMPORTANT: If you don't receive the SMS, your AWS account is in SNS Sandbox mode. You must verify this phone number in AWS SNS Console first (Text messaging > Sandbox destination phone numbers) OR request production access. The code is ready to be sent once verified in AWS."
         });
       } catch (smsError: any) {
         console.error("[SMS] Error sending verification SMS:", smsError);
