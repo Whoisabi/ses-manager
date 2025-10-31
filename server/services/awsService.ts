@@ -498,14 +498,18 @@ export class AWSService {
     const params: any = {
       PhoneNumber: options.phoneNumber,
       Message: options.message,
+      MessageAttributes: {
+        'AWS.SNS.SMS.SMSType': {
+          DataType: 'String',
+          StringValue: 'Transactional',
+        },
+      },
     };
 
     if (options.senderID) {
-      params.MessageAttributes = {
-        'AWS.SNS.SMS.SenderID': {
-          DataType: 'String',
-          StringValue: options.senderID,
-        },
+      params.MessageAttributes['AWS.SNS.SMS.SenderID'] = {
+        DataType: 'String',
+        StringValue: options.senderID,
       };
     }
 
