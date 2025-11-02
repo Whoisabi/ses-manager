@@ -1,4 +1,4 @@
-import { SNSClient, CreateTopicCommand, SubscribeCommand, UnsubscribeCommand, SetTopicAttributesCommand, DeleteTopicCommand, ListTopicsCommand, ListOriginationNumbersCommand, ListSMSSandboxPhoneNumbersCommand } from '@aws-sdk/client-sns';
+import { SNSClient, CreateTopicCommand, SubscribeCommand, UnsubscribeCommand, SetTopicAttributesCommand, DeleteTopicCommand, ListTopicsCommand } from '@aws-sdk/client-sns';
 import { SESClient, SetIdentityNotificationTopicCommand } from '@aws-sdk/client-ses';
 import { decrypt } from './encryptionService';
 import { storage } from '../storage';
@@ -70,42 +70,6 @@ export class SNSService {
     return response.Topics?.map(topic => topic.TopicArn!) || [];
   }
 
-  async listOriginationNumbers(): Promise<Array<{
-    phoneNumber: string;
-    status: string;
-    iso2CountryCode: string;
-    numberCapabilities: string[];
-    routeType: string;
-  }>> {
-    const { sns } = this.ensureInitialized();
-    
-    const command = new ListOriginationNumbersCommand({});
-    const response = await sns.send(command);
-    
-    return response.PhoneNumbers?.map(number => ({
-      phoneNumber: number.PhoneNumber || '',
-      status: number.Status || 'UNKNOWN',
-      iso2CountryCode: number.Iso2CountryCode || '',
-      numberCapabilities: number.NumberCapabilities || [],
-      routeType: number.RouteType || '',
-    })) || [];
-  }
-
-  async listSandboxPhoneNumbers(): Promise<Array<{
-    phoneNumber: string;
-    status: string;
-  }>> {
-    const { sns } = this.ensureInitialized();
-    
-    const command = new ListSMSSandboxPhoneNumbersCommand({});
-    const response = await sns.send(command);
-    
-    return response.PhoneNumbers?.map(number => ({
-      phoneNumber: number.PhoneNumber || '',
-      status: number.Status || 'UNKNOWN',
-    })) || [];
-  }
-
   async findTopicByName(name: string): Promise<string | null> {
     const topics = await this.listTopics();
     const topicArn = topics.find(arn => arn.endsWith(`:${name}`));
@@ -145,40 +109,29 @@ export class SNSService {
     await sns.send(command);
   }
 
-  async configureIdentityNotifications(
-    identity: string,
-    bounceTopicArn?: string,
-    complaintTopicArn?: string,
-    deliveryTopicArn?: string
-  ): Promise<void> {
+  async configureIdentityNotifications(identity: string, bounceTopic: string, complaintTopic: string, deliveryTopic: string): Promise<void> {
     const { ses } = this.ensureInitialized();
 
-    // Configure bounce notifications
-    if (bounceTopicArn !== undefined) {
-      await ses.send(new SetIdentityNotificationTopicCommand({
-        Identity: identity,
-        NotificationType: 'Bounce',
-        SnsTopic: bounceTopicArn || undefined,
-      }));
-    }
+    const bounceCommand = new SetIdentityNotificationTopicCommand({
+      Identity: identity,
+      NotificationType: 'Bounce',
+      SnsTopic: bounceTopic || undefined,
+    });
+    await ses.send(bounceCommand);
 
-    // Configure complaint notifications
-    if (complaintTopicArn !== undefined) {
-      await ses.send(new SetIdentityNotificationTopicCommand({
-        Identity: identity,
-        NotificationType: 'Complaint',
-        SnsTopic: complaintTopicArn || undefined,
-      }));
-    }
+    const complaintCommand = new SetIdentityNotificationTopicCommand({
+      Identity: identity,
+      NotificationType: 'Complaint',
+      SnsTopic: complaintTopic || undefined,
+    });
+    await ses.send(complaintCommand);
 
-    // Configure delivery notifications
-    if (deliveryTopicArn !== undefined) {
-      await ses.send(new SetIdentityNotificationTopicCommand({
-        Identity: identity,
-        NotificationType: 'Delivery',
-        SnsTopic: deliveryTopicArn || undefined,
-      }));
-    }
+    const deliveryCommand = new SetIdentityNotificationTopicCommand({
+      Identity: identity,
+      NotificationType: 'Delivery',
+      SnsTopic: deliveryTopic || undefined,
+    });
+    await ses.send(deliveryCommand);
   }
 
   async setupTracking(userId: string, webhookUrl: string, identities: string[]): Promise<{
@@ -189,20 +142,16 @@ export class SNSService {
     complaintSubscriptionArn: string;
     deliverySubscriptionArn: string;
   }> {
-    await this.initialize(userId);
+    const { sns } = this.ensureInitialized();
 
-    // Create topics with user-specific names
-    const userPrefix = userId.substring(0, 8);
-    const bounceTopicArn = await this.createTopic(`ses-bounces-${userPrefix}`);
-    const complaintTopicArn = await this.createTopic(`ses-complaints-${userPrefix}`);
-    const deliveryTopicArn = await this.createTopic(`ses-deliveries-${userPrefix}`);
+    const bounceTopicArn = await this.createTopic('ses-bounce-topic');
+    const complaintTopicArn = await this.createTopic('ses-complaint-topic');
+    const deliveryTopicArn = await this.createTopic('ses-delivery-topic');
 
-    // Subscribe webhook to topics
     const bounceSubscriptionArn = await this.subscribeTopic(bounceTopicArn, webhookUrl);
     const complaintSubscriptionArn = await this.subscribeTopic(complaintTopicArn, webhookUrl);
     const deliverySubscriptionArn = await this.subscribeTopic(deliveryTopicArn, webhookUrl);
 
-    // Configure all verified identities
     for (const identity of identities) {
       await this.configureIdentityNotifications(
         identity,
@@ -223,14 +172,13 @@ export class SNSService {
   }
 
   async cleanupTracking(config: {
-    bounceTopicArn?: string;
-    complaintTopicArn?: string;
-    deliveryTopicArn?: string;
-    bounceSubscriptionArn?: string;
-    complaintSubscriptionArn?: string;
-    deliverySubscriptionArn?: string;
+    bounceTopicArn: string | null;
+    complaintTopicArn: string | null;
+    deliveryTopicArn: string | null;
+    bounceSubscriptionArn: string | null;
+    complaintSubscriptionArn: string | null;
+    deliverySubscriptionArn: string | null;
   }, identities: string[]): Promise<void> {
-    // Unsubscribe webhooks
     if (config.bounceSubscriptionArn) {
       try {
         await this.unsubscribeTopic(config.bounceSubscriptionArn);
@@ -253,7 +201,6 @@ export class SNSService {
       }
     }
 
-    // Remove notifications from identities
     for (const identity of identities) {
       try {
         await this.configureIdentityNotifications(identity, '', '', '');
@@ -262,7 +209,6 @@ export class SNSService {
       }
     }
 
-    // Delete topics
     if (config.bounceTopicArn) {
       try {
         await this.deleteTopic(config.bounceTopicArn);

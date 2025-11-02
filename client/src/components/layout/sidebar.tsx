@@ -13,10 +13,7 @@ import {
   Globe,
   MailCheck,
   Activity,
-  FilterX,
-  MessageSquare,
-  Send,
-  Phone
+  FilterX
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import DOMPurify from 'dompurify';
@@ -31,12 +28,6 @@ const sesNavigation = [
   { name: "Templates", href: "/templates", icon: FileText },
   { name: "Recipients", href: "/recipients", icon: Users },
   { name: "Sanitize Emails", href: "/sanitize-emails", icon: FilterX },
-];
-
-const smsNavigation = [
-  { name: "SMS Dashboard", href: "/sms-dashboard", icon: Phone },
-  { name: "Send SMS", href: "/send-sms", icon: Send },
-  { name: "SMS Campaigns", href: "/sms-campaigns", icon: MessageSquare },
 ];
 
 const generalNavigation = [
@@ -78,35 +69,6 @@ export default function Sidebar() {
           EMAIL (SES)
         </div>
         {sesNavigation.map((item) => {
-          const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
-          const Icon = item.icon;
-          const safeName = sanitize(item.name);
-          return (
-            <Link
-              key={safeName}
-              href={item.href}
-              className={cn(
-                "flex items-center space-x-3 px-3 py-2 rounded-md transition-colors",
-                isActive
-                  ? "bg-accent text-accent-foreground"
-                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-              )}
-              data-testid={`nav-${safeName.toLowerCase().replace(/\s+/g, '-')}`}
-            >
-              <Icon className="w-5 h-5" />
-              <span className="font-medium">{safeName}</span>
-            </Link>
-          );
-        })}
-
-        {/* Separator */}
-        <div className="border-t border-border my-2"></div>
-
-        {/* SMS Section */}
-        <div className="text-xs font-semibold text-muted-foreground px-3 py-1">
-          SMS (SNS)
-        </div>
-        {smsNavigation.map((item) => {
           const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
           const Icon = item.icon;
           const safeName = sanitize(item.name);
