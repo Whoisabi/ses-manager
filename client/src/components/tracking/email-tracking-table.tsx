@@ -136,7 +136,7 @@ export default function EmailTrackingTable() {
                   </tr>
                 </thead>
                 <tbody>
-                  {emailSends.slice(0, 10).map((send, index) => (
+                  {emailSends.map((send, index) => (
                     <tr 
                       key={send.id} 
                       className={`border-b border-border hover:bg-accent/50 transition-all duration-200 ${index % 2 === 0 ? 'bg-background' : 'bg-muted/5'}`}
@@ -184,26 +184,11 @@ export default function EmailTrackingTable() {
               </table>
             </div>
             
-            {emailSends.length > 10 && (
-              <div className="px-6 py-4 border-t border-border bg-muted/20 dark:bg-muted/10">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm text-muted-foreground font-medium">
-                    Showing 1 to 10 of {emailSends.length} results
-                  </p>
-                  <div className="flex space-x-2">
-                    <Button variant="outline" size="sm" data-testid="button-tracking-previous">
-                      Previous
-                    </Button>
-                    <Button variant="default" size="sm" className="min-w-[40px]">
-                      1
-                    </Button>
-                    <Button variant="outline" size="sm" data-testid="button-tracking-next">
-                      Next
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            )}
+            <div className="px-6 py-4 border-t border-border bg-muted/20 dark:bg-muted/10">
+              <p className="text-sm text-muted-foreground font-medium">
+                Showing all {emailSends.length} results
+              </p>
+            </div>
           </>
         )}
       </CardContent>
