@@ -1,15 +1,44 @@
+import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Download, Eye, CheckCircle2, XCircle, AlertCircle, Clock, Ban } from "lucide-react";
+import { Download, Eye, CheckCircle2, XCircle, AlertCircle, Clock, Ban, Search, Filter } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import type { EmailSendRecord } from "@/lib/types";
 
 export default function EmailTrackingTable() {
+  const [subjectFilter, setSubjectFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+
   const { data: emailSends } = useQuery<EmailSendRecord[]>({
     queryKey: ["/api/email-sends"],
   });
+
+  const filteredEmailSends = useMemo(() => {
+    if (!emailSends) return [];
+
+    let filtered = emailSends;
+
+    if (subjectFilter.trim()) {
+      filtered = filtered.filter(send =>
+        send.subject.toLowerCase().includes(subjectFilter.toLowerCase())
+      );
+    }
+
+    if (statusFilter !== "all") {
+      if (statusFilter === "clicked") {
+        filtered = filtered.filter(send => send.clickedAt !== null);
+      } else if (statusFilter === "opened") {
+        filtered = filtered.filter(send => send.openedAt !== null);
+      } else {
+        filtered = filtered.filter(send => send.status === statusFilter);
+      }
+    }
+
+    return filtered;
+  }, [emailSends, subjectFilter, statusFilter]);
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
@@ -122,6 +151,53 @@ export default function EmailTrackingTable() {
           </div>
         ) : (
           <>
+            <div className="p-4 border-b bg-muted/10 dark:bg-muted/5">
+              <div className="flex gap-4 items-center">
+                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                  <Filter className="w-4 h-4" />
+                  Filters:
+                </div>
+                <div className="relative flex-1 max-w-xs">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    type="text"
+                    placeholder="Search by subject..."
+                    value={subjectFilter}
+                    onChange={(e) => setSubjectFilter(e.target.value)}
+                    className="pl-9"
+                    data-testid="input-filter-subject"
+                  />
+                </div>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-44" data-testid="select-filter-status">
+                    <SelectValue placeholder="Filter by status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="delivered">Delivered</SelectItem>
+                    <SelectItem value="failed">Failed</SelectItem>
+                    <SelectItem value="opened">Opened</SelectItem>
+                    <SelectItem value="clicked">Clicked</SelectItem>
+                    <SelectItem value="bounced">Bounced</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                  </SelectContent>
+                </Select>
+                {(subjectFilter || statusFilter !== "all") && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setSubjectFilter("");
+                      setStatusFilter("all");
+                    }}
+                    className="text-muted-foreground hover:text-foreground"
+                    data-testid="button-clear-filters"
+                  >
+                    Clear Filters
+                  </Button>
+                )}
+              </div>
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
@@ -136,12 +212,30 @@ export default function EmailTrackingTable() {
                   </tr>
                 </thead>
                 <tbody>
-                  {emailSends.map((send, index) => (
-                    <tr 
-                      key={send.id} 
-                      className={`border-b border-border hover:bg-accent/50 transition-all duration-200 ${index % 2 === 0 ? 'bg-background' : 'bg-muted/5'}`}
-                      data-testid={`tracking-row-${send.id}`}
-                    >
+                  {filteredEmailSends.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-12 text-center">
+                        <p className="text-muted-foreground">No emails match your filters</p>
+                        <Button
+                          variant="link"
+                          size="sm"
+                          onClick={() => {
+                            setSubjectFilter("");
+                            setStatusFilter("all");
+                          }}
+                          className="mt-2"
+                        >
+                          Clear filters
+                        </Button>
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredEmailSends.map((send, index) => (
+                      <tr 
+                        key={send.id} 
+                        className={`border-b border-border hover:bg-accent/50 transition-all duration-200 ${index % 2 === 0 ? 'bg-background' : 'bg-muted/5'}`}
+                        data-testid={`tracking-row-${send.id}`}
+                      >
                       <td className="py-4 px-6">
                         <p className="font-semibold text-foreground truncate max-w-[250px]" data-testid={`tracking-subject-${send.id}`}>
                           {send.subject}
@@ -178,15 +272,19 @@ export default function EmailTrackingTable() {
                           {formatDate(send.sentAt)}
                         </p>
                       </td>
-                    </tr>
-                  ))}
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
             
             <div className="px-6 py-4 border-t border-border bg-muted/20 dark:bg-muted/10">
               <p className="text-sm text-muted-foreground font-medium">
-                Showing all {emailSends.length} results
+                Showing {filteredEmailSends.length} of {emailSends.length} results
+                {(subjectFilter || statusFilter !== "all") && (
+                  <span className="ml-2 text-primary">(filtered)</span>
+                )}
               </p>
             </div>
           </>
